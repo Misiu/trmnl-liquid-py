@@ -10,16 +10,22 @@ def test_number_with_delimiter() -> None:
     assert render('{{ 1234.57 | number_with_delimiter: " ", "," }}') == "1 234,57"
     assert render('{{ value | number_with_delimiter }}', value=None) == ""
     assert render('{{ value | number_with_delimiter }}', value="asdf") == "asdf"
+    assert render("{{ value | number_with_delimiter }}", value=True) == "true"
+    assert render("{{ value | number_with_delimiter }}", value=False) == "false"
 
 
 def test_number_to_currency_fallback() -> None:
     assert render("{{ 10420 | number_to_currency }}") == "$10,420.00"
     assert render('{{ 1234.57 | number_to_currency: "£", ".", "," }}') == "£1.234,57"
     assert render('{{ 10420 | number_to_currency: "$", ",", ".", 0 }}') == "$10,420"
+    assert render("{{ value | number_to_currency }}", value=True) == "$true.00"
+    assert render("{{ value | number_to_currency }}", value=False) == "$false.00"
 
 
 def test_map_to_i_matches_ruby_string_conversion() -> None:
     assert render('{% assign nums = "12px,-4.5,x" | split: "," | map_to_i %}{{ nums }}') == "12-40"
+    assert render("{{ values | map_to_i }}", values=[None, "2"]) == "02"
+    assert render("{{ values | map_to_i }}", values=[True, False]) == "Liquid error: internal"
 
 
 def test_json_and_parse_json() -> None:
@@ -36,6 +42,7 @@ def test_pluralize_fallback() -> None:
     assert render('{{ "book" | pluralize: 0 }}') == "0 books"
     assert render('{{ "book" | pluralize: 1 }}') == "1 book"
     assert render('{{ "person" | pluralize: 4, plural: "humans" }}') == "4 humans"
+    assert render('{{ "item" | pluralize: count }}', count=None) == " items"
 
 
 def test_i18n_filters_use_upstream_fallback_without_i18n() -> None:

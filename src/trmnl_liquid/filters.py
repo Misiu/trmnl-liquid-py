@@ -23,31 +23,17 @@ from liquid.token import TOKEN_EXPRESSION
 
 from .markdown import markdown_to_html as _markdown_to_html
 from .qr import render_qr_svg
+from .ruby_coercion import ruby_to_i, ruby_to_s
 from .ruby_values import ruby_wrap
 
 if TYPE_CHECKING:
     from liquid.context import RenderContext
 
 _NUMERIC = re.compile(r"^-?\d+(?:\.\d+)?$")
-_TO_I = re.compile(r"^[\s]*([+-]?\d+)")
-
-
-def ruby_to_i(value: object) -> int:
-    """Approximate Ruby's String#to_i semantics used by trmnl-liquid."""
-    if value is None:
-        return 0
-    if isinstance(value, bool):
-        return int(value)
-    if isinstance(value, int):
-        return value
-    if isinstance(value, float):
-        return int(value)
-    match = _TO_I.match(str(value))
-    return int(match.group(1)) if match else 0
 
 
 def append_random(value: object) -> str:
-    return f"{'' if value is None else value}{secrets.token_hex(2)}"
+    return f"{ruby_to_s(value)}{secrets.token_hex(2)}"
 
 
 def days_ago(value: object, timezone: str = "Etc/UTC") -> date:
@@ -80,7 +66,9 @@ def markdown_to_html(markdown: object) -> str:
 def number_with_delimiter(
     number: object, delimiter: str = ",", separator: str = "."
 ) -> str:
-    value = "" if number is None else str(number)
+    # TRMNL Fallback.number_with_delimiter starts with Ruby `number.to_s`.
+    # https://github.com/usetrmnl/trmnl-liquid/blob/0.8.2/lib/trmnl/liquid/fallback.rb
+    value = ruby_to_s(number)
     if not _NUMERIC.fullmatch(value):
         return value
 
@@ -107,20 +95,21 @@ def number_to_currency(
 ) -> str:
     result = number_with_delimiter(number, delimiter, separator)
     dollars, _, cents = result.partition(separator)
+    unit = ruby_to_s(unit_or_locale)
     if precision <= 0:
-        return f"{unit_or_locale}{dollars}"
+        return f"{unit}{dollars}"
     cents = cents[:precision].ljust(precision, "0")
-    return f"{unit_or_locale}{dollars}{separator}{cents}"
+    return f"{unit}{dollars}{separator}{cents}"
 
 
 def l_word(word: object, locale: str) -> str:
     del locale
-    return f"custom_plugins.{word}"
+    return f"custom_plugins.{ruby_to_s(word)}"
 
 
 def l_date(value: object, format: str, locale: str = "en") -> str:
     del format, locale
-    return "" if value is None else str(value)
+    return ruby_to_s(value)
 
 
 def map_to_i(collection: Iterable[object]) -> list[int]:
@@ -135,8 +124,12 @@ def pluralize(
     locale: object | None = None,
 ) -> str:
     del locale
-    plural_word = str(plural) if plural is not None else f"{singular}s"
-    return f"1 {singular}" if count == 1 else f"{count} {plural_word}"
+    singular_value = ruby_to_s(singular)
+    plural_word = (
+        ruby_to_s(plural) if plural is not None else f"{singular_value}s"
+    )
+    count_value = ruby_to_s(count)
+    return f"1 {singular_value}" if count == 1 else f"{count_value} {plural_word}"
 
 
 def json(value: object) -> str:
