@@ -1,8 +1,9 @@
 """Generate and validate the README compatibility evidence block.
 
-The report uses the same checked-in fixed, generated, and upstream-spec corpora as the
-Ruby/Python compatibility gate. ``compare.py`` proves output equality; this module
-keeps the documented corpus and upstream-spec counts synchronized with those sources.
+The report uses the same checked-in fixed, generated, coercion, and upstream-spec
+corpora as the Ruby/Python compatibility gate. ``compare.py`` proves output
+equality; this module keeps the documented corpus and upstream-spec counts
+synchronized with those sources.
 """
 
 from __future__ import annotations
@@ -13,6 +14,7 @@ from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 
+from compatibility.coercion_cases import coercion_cases
 from compatibility.generated_cases import generated_cases
 from compatibility.upstream_cases import upstream_differential_cases
 from compatibility.upstream_specs import UPSTREAM_SPEC_EXAMPLES
@@ -43,7 +45,7 @@ def collect_metrics() -> CompatibilityMetrics:
     if not isinstance(fixed, list):
         raise ValueError("compatibility/cases.json must contain a JSON array")
 
-    generated_count = len(generated_cases())
+    generated_count = len(generated_cases()) + len(coercion_cases())
     upstream_cases_count = len(upstream_differential_cases())
     statuses = Counter(example.status for example in UPSTREAM_SPEC_EXAMPLES)
 
@@ -138,23 +140,20 @@ def write_readme() -> None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    mode = parser.add_mutually_exclusive_group()
-    mode.add_argument("--check", action="store_true", help="fail if README is stale")
-    mode.add_argument("--write", action="store_true", help="update README in place")
+    parser = argparse.ArgumentParser()
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("--check", action="store_true")
+    group.add_argument("--write", action="store_true")
     args = parser.parse_args()
-
-    if args.check:
-        if check_readme():
-            print("README compatibility report is up to date")
-            return 0
-        print("README compatibility report is stale")
-        return 1
 
     if args.write:
         write_readme()
-        print("README compatibility report updated")
         return 0
+    if args.check:
+        if check_readme():
+            return 0
+        print("README compatibility report is stale; run python -m compatibility.report --write")
+        return 1
 
     print(render_report())
     return 0
