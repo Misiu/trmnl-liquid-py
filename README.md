@@ -146,6 +146,18 @@ python compatibility/compare.py
 python -m compatibility.report --check
 ```
 
+## Release process
+
+Releases are tag-driven. There is no manual publish workflow and no PyPI API token stored in GitHub.
+
+1. Update `src/trmnl_liquid/__about__.py` and `CHANGELOG.md` in a normal PR.
+2. Merge the PR to `main` and wait for both `CI` and `Compatibility` to pass on `main`.
+3. Create and push a tag whose name is exactly the package version, for example `0.1.0`.
+4. The `Release` workflow verifies that the tag equals `__version__` and points to a commit on `main`.
+5. The workflow builds and validates the wheel/sdist, publishes them to PyPI through Trusted Publishing, and only after a successful PyPI publish creates the matching GitHub Release with the distributions attached.
+
+A tag such as `v0.1.0` is intentionally invalid when `__version__ == "0.1.0"`.
+
 ## License
 
 MIT. The repository license includes attribution for portions derived from `usetrmnl/trmnl-liquid`.
