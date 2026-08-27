@@ -18,9 +18,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from liquid.ast import BlockNode, ConditionalBlockNode, Node
-from liquid.builtin.expressions import BooleanExpression, LoopExpression
+from liquid.builtin.expressions import LoopExpression
 from liquid.builtin.tags.for_tag import ForNode, ForTag
 from liquid.builtin.tags.if_tag import IfNode, IfTag
+from liquid.expression import Expression
 from liquid.token import Token
 
 from .template import TRMNLBlockNode
@@ -43,7 +44,7 @@ class TRMNLIfNode(IfNode):
     def __init__(
         self,
         token: Token,
-        condition: BooleanExpression,
+        condition: Expression,
         consequence: BlockNode,
         alternatives: list[ConditionalBlockNode],
         default: BlockNode | None,
@@ -119,4 +120,6 @@ class TRMNLForTag(ForTag):
 
     def parse(self, stream: TokenStream) -> Node:
         node = super().parse(stream)
+        if not isinstance(node, ForNode):
+            return node
         return TRMNLForNode.from_upstream(node)
