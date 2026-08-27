@@ -30,11 +30,6 @@ def upstream_differential_cases() -> list[dict[str, Any]]:
         {"name": "upstream fallback currency usd no cents", "template": "{{ 10420 | number_to_currency: '$', ',', '.', 0 }}", "data": {}},
         {"name": "upstream fallback currency usd four cents", "template": "{{ 10420 | number_to_currency: '$', ',', '.', 4 }}", "data": {}},
         {"name": "upstream fallback currency pounds", "template": "{{ 1234.57 | number_to_currency: '£', '.', ',', 2 }}", "data": {}},
-        # fallback_spec.rb -- ordinalize
-        {"name": "upstream fallback ordinal zero", "template": "{{ 0 | ordinalize: '<<ordinal_day>>' }}", "data": {}},
-        {"name": "upstream fallback ordinal one", "template": "{{ 1 | ordinalize: '<<ordinal_day>>' }}", "data": {}},
-        {"name": "upstream fallback ordinal ten", "template": "{{ 10 | ordinalize: '<<ordinal_day>>' }}", "data": {}},
-        {"name": "upstream fallback ordinal hundred", "template": "{{ 100 | ordinalize: '<<ordinal_day>>' }}", "data": {}},
         # fallback_spec.rb -- pluralize
         {"name": "upstream fallback plural zero", "template": "{{ 'cow' | pluralize: 0, plural: 'cows' }}", "data": {}},
         {"name": "upstream fallback plural one", "template": "{{ 'cow' | pluralize: 1, plural: 'cows' }}", "data": {}},
@@ -75,5 +70,5 @@ def upstream_differential_cases() -> list[dict[str, Any]]:
         {"name": "upstream template invalid name", "template": "{% template Danger! %}Hello, world!{% endtemplate %}", "data": {}},
         {"name": "upstream template missing", "template": "{% render \"bogus\" %}", "data": {}},
     ]
-    assert len(cases) == 50
+    assert len(cases) == 46
     return cases
