@@ -1,13 +1,18 @@
 # trmnl-liquid-py
 
+[![PyPI](https://img.shields.io/pypi/v/trmnl-liquid-py)](https://pypi.org/project/trmnl-liquid-py/)
+[![Python](https://img.shields.io/pypi/pyversions/trmnl-liquid-py)](https://pypi.org/project/trmnl-liquid-py/)
+[![CI](https://github.com/Misiu/trmnl-liquid-py/actions/workflows/ci.yml/badge.svg)](https://github.com/Misiu/trmnl-liquid-py/actions/workflows/ci.yml)
+[![Compatibility](https://github.com/Misiu/trmnl-liquid-py/actions/workflows/compatibility.yml/badge.svg)](https://github.com/Misiu/trmnl-liquid-py/actions/workflows/compatibility.yml)
+
 A Python compatibility layer for [`usetrmnl/trmnl-liquid`](https://github.com/usetrmnl/trmnl-liquid), targeting byte-for-byte compatible rendering for the supported TRMNL Liquid 0.8.2 surface.
 
 > [!NOTE]
-> The first release target is `trmnl-liquid-py` **0.1.0**, compatible with `trmnl-liquid` **0.8.2** for the supported non-I18n surface. Rails/ActionView and full I18n behavior are intentionally deferred.
+> The current compatibility target is `trmnl-liquid` **0.8.2** for the supported non-I18n surface. Rails/ActionView and full I18n behavior are intentionally deferred.
 
 ## Installation
 
-Once 0.1.0 is published to PyPI:
+[`trmnl-liquid-py` is available on PyPI](https://pypi.org/project/trmnl-liquid-py/):
 
 ```bash
 python -m pip install trmnl-liquid-py
