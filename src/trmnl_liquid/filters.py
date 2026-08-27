@@ -21,6 +21,7 @@ import qrcode
 from dateutil import parser as date_parser
 from liquid import Token, TokenStream
 from liquid.builtin.expressions import BooleanExpression, tokenize
+from liquid.filter import with_context
 from liquid.token import TOKEN_EXPRESSION
 from qrcode.constants import ERROR_CORRECT_H, ERROR_CORRECT_L, ERROR_CORRECT_M, ERROR_CORRECT_Q
 
@@ -34,10 +35,13 @@ _TO_I = re.compile(r"^[\s]*([+-]?\d+)")
 
 
 class _RedcarpetLikeRenderer(mistune.HTMLRenderer):
-    """Use Redcarpet-compatible escaping for plain text nodes."""
+    """Use Redcarpet-compatible output for the supported Markdown surface."""
 
     def text(self, text: str) -> str:
         return html.escape(text, quote=True).replace("&#x27;", "&#39;")
+
+    def heading(self, text: str, level: int, **attrs: Any) -> str:
+        return super().heading(text, level, **attrs) + "\n"
 
 
 _MARKDOWN = mistune.create_markdown(renderer=_RedcarpetLikeRenderer())
@@ -162,6 +166,7 @@ def sample(array: list[Any]) -> Any:
     return secrets.choice(array) if array else None
 
 
+@with_context
 def where_exp(
     input: object,
     variable: object,
@@ -190,9 +195,6 @@ def where_exp(
             if condition.evaluate(context):
                 selected.append(ruby_wrap(item))
     return selected
-
-
-setattr(where_exp, "with_context", True)
 
 
 def ordinalize_number(number: int) -> str:
