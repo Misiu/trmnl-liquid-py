@@ -7,12 +7,19 @@ from pathlib import Path
 from typing import Any
 
 from generated_cases import generated_cases
+from upstream_cases import upstream_differential_cases
 
 from trmnl_liquid import Environment
 
 ROOT = Path(__file__).resolve().parents[1]
 CASES = ROOT / "compatibility" / "cases.json"
 RUBY_DIR = ROOT / "compatibility" / "ruby"
+
+
+def load_differential_cases() -> list[dict[str, Any]]:
+    """Load fixed, generated and exact upstream compatibility cases."""
+    fixed_cases: list[dict[str, Any]] = json.loads(CASES.read_text(encoding="utf-8"))
+    return fixed_cases + generated_cases() + upstream_differential_cases()
 
 
 def ruby_render_all(cases: list[dict[str, Any]]) -> list[dict[str, object]]:
@@ -65,8 +72,7 @@ def python_render(case: dict[str, Any]) -> dict[str, object]:
 
 
 def main() -> int:
-    fixed_cases: list[dict[str, Any]] = json.loads(CASES.read_text(encoding="utf-8"))
-    cases = fixed_cases + generated_cases()
+    cases = load_differential_cases()
     ruby_results = ruby_render_all(cases)
     failures: list[tuple[str, dict[str, object], dict[str, object]]] = []
 
