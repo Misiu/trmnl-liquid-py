@@ -1,4 +1,15 @@
-"""QR rendering compatible with RQRCode 3.2 / rqrcode_core 2.1."""
+"""QR rendering compatible with RQRCode 3.2 / rqrcode_core 2.1.
+
+Compatibility references:
+- TRMNL 0.8.2 ``qr_code`` filter:
+  https://github.com/usetrmnl/trmnl-liquid/blob/0.8.2/lib/trmnl/liquid/filters.rb
+- rqrcode_core 2.1.0 mask scoring:
+  https://github.com/whomwah/rqrcode_core/blob/v2.1.0/lib/rqrcode_core/qrcode/qr_util.rb
+- RQRCode 3.2.0 SVG/path serializer:
+  https://github.com/whomwah/rqrcode/blob/v3.2.0/lib/rqrcode/export/svg.rb
+- python-qrcode 8.2 public ``mask_pattern`` API:
+  https://github.com/lincolnloop/python-qrcode/blob/v8.2/qrcode/main.py
+"""
 
 from __future__ import annotations
 
@@ -18,7 +29,11 @@ _ERROR_CORRECTION = {
 
 
 def _rqrcode_lost_points(modules: _QRMatrix) -> float:
-    """Score a candidate mask using rqrcode_core 2.1.0 rules."""
+    """Score a candidate mask using rqrcode_core 2.1.0 rules.
+
+    Reference:
+    https://github.com/whomwah/rqrcode_core/blob/v2.1.0/lib/rqrcode_core/qrcode/qr_util.rb
+    """
     module_count = len(modules)
     max_index = module_count - 1
 
@@ -102,6 +117,11 @@ def _mask_evaluation_matrix(modules: _QRMatrix, version: int) -> list[list[bool]
     evaluating masks. python-qrcode exposes fixed-mask generation publicly through
     ``mask_pattern`` but not its internal test matrix, so derive the test matrix from
     the generated candidate by clearing only those reserved fields.
+
+    Ruby reference:
+    https://github.com/whomwah/rqrcode_core/blob/v2.1.0/lib/rqrcode_core/qrcode/qr_code.rb
+    Python reference:
+    https://github.com/lincolnloop/python-qrcode/blob/v8.2/qrcode/main.py
     """
     candidate = [list(row) for row in modules]
     module_count = len(candidate)
@@ -137,6 +157,11 @@ def _mask_evaluation_matrix(modules: _QRMatrix, version: int) -> list[list[bool]
 def _make_candidate(
     data: str, error_correction: int, mask_pattern: int
 ) -> tuple[list[list[bool]], int]:
+    """Build a fixed-mask QR using python-qrcode's public constructor API.
+
+    Reference:
+    https://github.com/lincolnloop/python-qrcode/blob/v8.2/qrcode/main.py
+    """
     qr = qrcode.QRCode(
         version=None,
         error_correction=error_correction,
@@ -150,7 +175,11 @@ def _make_candidate(
 
 
 def _select_rqrcode_matrix(data: str, error_correction: int) -> tuple[int, list[list[bool]]]:
-    """Generate the matrix chosen by rqrcode_core's mask-selection algorithm."""
+    """Generate the matrix chosen by rqrcode_core's mask-selection algorithm.
+
+    Reference:
+    https://github.com/whomwah/rqrcode_core/blob/v2.1.0/lib/rqrcode_core/qrcode/qr_code.rb
+    """
     best_pattern = 0
     best_score: float | None = None
     best_matrix: list[list[bool]] | None = None
@@ -168,7 +197,11 @@ def _select_rqrcode_matrix(data: str, error_correction: int) -> tuple[int, list[
 
 
 def _qr_path(modules: list[list[bool]]) -> str:
-    """Serialize modules using RQRCode 3.2's SVG path algorithm."""
+    """Serialize modules using RQRCode 3.2's SVG path algorithm.
+
+    Reference:
+    https://github.com/whomwah/rqrcode/blob/v3.2.0/lib/rqrcode/export/svg.rb
+    """
     dir_up, dir_down, dir_left, dir_right = range(4)
     deltas = ((0, -1), (0, 1), (-1, 0), (1, 0))
     commands = ("v-", "v", "h-", "h")
@@ -269,7 +302,13 @@ def render_qr_svg(
     level: object = "",
     view: object = "responsive",
 ) -> str:
-    """Render the SVG produced by TRMNL Liquid 0.8.2's ``qr_code`` filter."""
+    """Render the SVG produced by TRMNL Liquid 0.8.2's ``qr_code`` filter.
+
+    TRMNL reference:
+    https://github.com/usetrmnl/trmnl-liquid/blob/0.8.2/lib/trmnl/liquid/filters.rb
+    RQRCode SVG reference:
+    https://github.com/whomwah/rqrcode/blob/v3.2.0/lib/rqrcode/export/svg.rb
+    """
     level_name = str(level).lower()
     error_correction = _ERROR_CORRECTION.get(level_name, ERROR_CORRECT_H)
     _, modules = _select_rqrcode_matrix(str(data), error_correction)
