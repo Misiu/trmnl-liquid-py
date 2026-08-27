@@ -45,12 +45,36 @@ def _body_start(token: Token, tag_end: str) -> int:
     return index + len(tag_end)
 
 
-def _body_end(token: Token, tag_start: str, start: int) -> int:
-    """Return the source index where the closing template tag starts."""
-    index = token.source.rfind(tag_start, start, token.start_index + 1)
+def _tag_start(token: Token, tag_start: str) -> int:
+    """Return the source index of the tag delimiter for a parsed tag token."""
+    index = token.source.rfind(tag_start, 0, token.start_index + 1)
     if index < 0:
-        raise LiquidSyntaxError("expected endtemplate tag start", token=token)
+        raise LiquidSyntaxError("expected tag start", token=token)
     return index
+
+
+def _tag_end(token: Token, tag_end: str) -> int:
+    """Return the source index immediately after a parsed tag token."""
+    index = token.source.find(tag_end, token.start_index)
+    if index < 0:
+        raise LiquidSyntaxError("expected tag terminator", token=token)
+    return index + len(tag_end)
+
+
+def _is_literal_endtemplate(token: Token, tag_start: str, tag_end: str) -> bool:
+    """Match the exact terminator recognized by TRMNL Liquid 0.8.2.
+
+    TRMNL's Ruby ``TemplateTag#parse`` stops only when ``token.strip`` equals
+    ``"{% endtemplate %}"``. Whitespace-control variants such as
+    ``"{%- endtemplate -%}"`` are therefore part of the captured template body and
+    do not close the definition.
+
+    Ruby reference:
+    https://github.com/usetrmnl/trmnl-liquid/blob/0.8.2/lib/trmnl/liquid/template_tag.rb
+    """
+    start = _tag_start(token, tag_start)
+    end = _tag_end(token, tag_end)
+    return token.source[start:end].strip() == "{% endtemplate %}"
 
 
 class TemplateNode(Node):
@@ -88,10 +112,11 @@ class TemplateTag(Tag):
     def parse(self, stream: TokenStream) -> TemplateNode:
         """Capture the template body without parsing or reconstructing its source.
 
-        Ruby TRMNL's TemplateTag appends tokenizer strings verbatim until its closing
-        tag and then calls ``strip``. python-liquid exposes source text and source
-        positions on every token, so we preserve the same semantics by slicing the
-        original source while advancing the public TokenStream to ``endtemplate``.
+        Ruby TRMNL's TemplateTag appends tokenizer strings verbatim until a token
+        whose stripped source is exactly ``{% endtemplate %}``, then calls ``strip``.
+        python-liquid exposes source text and positions on tokens, so we preserve the
+        same semantics by slicing the original source and advancing the public
+        ``TokenStream``.
 
         Ruby reference:
         https://github.com/usetrmnl/trmnl-liquid/blob/0.8.2/lib/trmnl/liquid/template_tag.rb
@@ -107,10 +132,21 @@ class TemplateTag(Tag):
 
         start = _body_start(token, self.env.tag_end_string)
         while stream.current.kind != TOKEN_EOF:
-            if stream.current.kind == TOKEN_TAG and stream.current.value == TAG_ENDTEMPLATE:
-                break
+            if (
+                stream.current.kind == TOKEN_TAG
+                and stream.current.value == TAG_ENDTEMPLATE
+                and _is_literal_endtemplate(
+                    stream.current,
+                    self.env.tag_start_string,
+                    self.env.tag_end_string,
+                )
+            ):
+                closing = stream.current
+                end = _tag_start(closing, self.env.tag_start_string)
+                return self.node_class(token, name, token.source[start:end].strip())
             next(stream)
 
-        closing = stream.expect(TOKEN_TAG, value=TAG_ENDTEMPLATE)
-        end = _body_end(closing, self.env.tag_start_string, start)
-        return self.node_class(token, name, token.source[start:end].strip())
+        # TRMNL 0.8.2's custom block consumes the remaining tokenizer input when no
+        # exact closing token exists; it does not ask Liquid::Block to raise a missing
+        # end-tag error. Mirror that behavior by capturing through EOF.
+        return self.node_class(token, name, token.source[start:].strip())
