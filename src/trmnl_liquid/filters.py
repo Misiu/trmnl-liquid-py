@@ -3,6 +3,19 @@
 The functions in this module intentionally mimic Ruby behavior where it differs
 from idiomatic Python. Rails/I18n-backed behavior is out of scope for the first
 compatibility target; fallback behavior is implemented instead.
+
+Compatibility references:
+- TRMNL 0.8.2 filters:
+  https://github.com/usetrmnl/trmnl-liquid/blob/0.8.2/lib/trmnl/liquid/filters.rb
+- TRMNL 0.8.2 non-Rails fallback helpers:
+  https://github.com/usetrmnl/trmnl-liquid/blob/0.8.2/lib/trmnl/liquid/fallback.rb
+- Jekyll source referenced by TRMNL for ``where_exp``:
+  https://github.com/jekyll/jekyll/blob/40ac06ed3e95325a07868dd2ac419e409af823b6/lib/jekyll/filters.rb#L209
+- python-liquid 2.3.1 expression parser used by the Python ``where_exp`` adapter:
+  https://github.com/jg-rp/liquid/blob/v2.3.1/liquid/builtin/expressions/logical.py
+  https://github.com/jg-rp/liquid/blob/v2.3.1/liquid/builtin/expressions/_tokenize.py
+- python-dateutil 2.9.0.post0 parser used for Ruby ``Time.parse``-style input:
+  https://github.com/dateutil/dateutil/blob/2.9.0.post0/src/dateutil/parser/_parser.py
 """
 
 from __future__ import annotations
@@ -11,43 +24,42 @@ import json as _json
 import re
 import secrets
 from collections.abc import Iterable, Mapping
-from datetime import datetime, timedelta
-from typing import Any
+from datetime import date, datetime, timedelta
+from typing import TYPE_CHECKING, Any
 from zoneinfo import ZoneInfo
 
+from dateutil import parser as date_parser
+from liquid import Token, TokenStream
+from liquid.builtin.expressions import BooleanExpression, tokenize
+from liquid.filter import with_context
+from liquid.token import TOKEN_EXPRESSION
+
+from .markdown import markdown_to_html as _markdown_to_html
+from .qr import render_qr_svg
+from .ruby_coercion import ruby_to_i, ruby_to_s
+from .ruby_values import ruby_wrap
+
+if TYPE_CHECKING:
+    from liquid.context import RenderContext
+
 _NUMERIC = re.compile(r"^-?\d+(?:\.\d+)?$")
-_TO_I = re.compile(r"^[\s]*([+-]?\d+)")
-
-
-def ruby_to_i(value: object) -> int:
-    """Approximate Ruby's String#to_i semantics used by trmnl-liquid."""
-    if value is None:
-        return 0
-    if isinstance(value, bool):
-        return int(value)
-    if isinstance(value, int):
-        return value
-    if isinstance(value, float):
-        return int(value)
-    match = _TO_I.match(str(value))
-    return int(match.group(1)) if match else 0
 
 
 def append_random(value: object) -> str:
-    return f"{'' if value is None else value}{secrets.token_hex(2)}"
+    return f"{ruby_to_s(value)}{secrets.token_hex(2)}"
 
 
-def days_ago(value: object, timezone: str = "Etc/UTC") -> str:
+def days_ago(value: object, timezone: str = "Etc/UTC") -> date:
     today = datetime.now(ZoneInfo(timezone)).date()
-    return str(today - timedelta(days=ruby_to_i(value)))
+    return today - timedelta(days=ruby_to_i(value))
 
 
-def group_by(collection: Iterable[object], key: str) -> dict[object, list[object]]:
+def group_by(collection: Iterable[object], key: str) -> object:
     result: dict[object, list[object]] = {}
     for item in collection:
         group = item.get(key) if isinstance(item, Mapping) else None
-        result.setdefault(group, []).append(item)
-    return result
+        result.setdefault(group, []).append(ruby_wrap(item))
+    return ruby_wrap(result)
 
 
 def find_by(
@@ -55,14 +67,21 @@ def find_by(
 ) -> object:
     for item in collection:
         if isinstance(item, Mapping) and item.get(key) == value:
-            return item
+            return ruby_wrap(item)
     return fallback
+
+
+def markdown_to_html(markdown: object) -> str:
+    """Render Markdown using TRMNL 0.8.2 / Redcarpet-compatible semantics."""
+    return _markdown_to_html(markdown)
 
 
 def number_with_delimiter(
     number: object, delimiter: str = ",", separator: str = "."
 ) -> str:
-    value = "" if number is None else str(number)
+    # TRMNL Fallback.number_with_delimiter starts with Ruby `number.to_s`.
+    # https://github.com/usetrmnl/trmnl-liquid/blob/0.8.2/lib/trmnl/liquid/fallback.rb
+    value = ruby_to_s(number)
     if not _NUMERIC.fullmatch(value):
         return value
 
@@ -89,20 +108,21 @@ def number_to_currency(
 ) -> str:
     result = number_with_delimiter(number, delimiter, separator)
     dollars, _, cents = result.partition(separator)
+    unit = ruby_to_s(unit_or_locale)
     if precision <= 0:
-        return f"{unit_or_locale}{dollars}"
+        return f"{unit}{dollars}"
     cents = cents[:precision].ljust(precision, "0")
-    return f"{unit_or_locale}{dollars}{separator}{cents}"
+    return f"{unit}{dollars}{separator}{cents}"
 
 
 def l_word(word: object, locale: str) -> str:
     del locale
-    return f"custom_plugins.{word}"
+    return f"custom_plugins.{ruby_to_s(word)}"
 
 
 def l_date(value: object, format: str, locale: str = "en") -> str:
     del format, locale
-    return "" if value is None else str(value)
+    return ruby_to_s(value)
 
 
 def map_to_i(collection: Iterable[object]) -> list[int]:
@@ -117,9 +137,18 @@ def pluralize(
     locale: object | None = None,
 ) -> str:
     del locale
-    plural_word = str(plural) if plural is not None else f"{singular}s"
-    numeric_count = ruby_to_i(count)
-    return f"1 {singular}" if numeric_count == 1 else f"{count} {plural_word}"
+    singular_value = ruby_to_s(singular)
+    plural_word = (
+        ruby_to_s(plural) if plural is not None else f"{singular_value}s"
+    )
+    count_value = ruby_to_s(count)
+
+    # Ruby's TrueClass/FalseClass are not Numeric, while Python's bool subclasses int.
+    # TRMNL 0.8.2 fallback pluralization uses `count == 1`, so `true` is plural in
+    # Ruby even though `True == 1` in Python. Preserve Ruby's equality semantics here.
+    # https://github.com/usetrmnl/trmnl-liquid/blob/0.8.2/lib/trmnl/liquid/fallback.rb
+    is_one = not isinstance(count, bool) and count == 1
+    return f"1 {singular_value}" if is_one else f"{count_value} {plural_word}"
 
 
 def json(value: object) -> str:
@@ -127,11 +156,42 @@ def json(value: object) -> str:
 
 
 def parse_json(value: object) -> Any:
-    return _json.loads(str(value))
+    return ruby_wrap(_json.loads(str(value)))
 
 
 def sample(array: list[Any]) -> Any:
-    return secrets.choice(array)
+    return secrets.choice(array) if array else None
+
+
+@with_context
+def where_exp(
+    input: object,
+    variable: object,
+    expression: object,
+    *,
+    context: RenderContext,
+) -> object:
+    """Select values using Liquid's own logical-expression parser."""
+    if isinstance(input, Mapping):
+        items: Iterable[object] = input.values()
+    elif isinstance(input, (list, tuple, range)):
+        items = input
+    else:
+        return input
+
+    source = str(expression)
+    token = Token(TOKEN_EXPRESSION, source, 0, source)
+    condition = BooleanExpression.parse(
+        context.env, TokenStream(tokenize(source, parent_token=token))
+    )
+
+    selected: list[object] = []
+    name = str(variable)
+    for item in items:
+        with context.extend({name: item}):
+            if condition.evaluate(context):
+                selected.append(ruby_wrap(item))
+    return selected
 
 
 def ordinalize_number(number: int) -> str:
@@ -139,3 +199,32 @@ def ordinalize_number(number: int) -> str:
         return f"{number}th"
     suffix = {1: "st", 2: "nd", 3: "rd"}.get(number % 10, "th")
     return f"{number}{suffix}"
+
+
+def _to_time(value: object) -> datetime:
+    if value in ("now", "today"):
+        return datetime.now()
+    if type(value) is int:
+        return datetime.fromtimestamp(value)
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, date):
+        return datetime.combine(value, datetime.min.time())
+    return date_parser.parse(str(value))
+
+
+def ordinalize(value: object, strftime_format: object) -> str:
+    time = _to_time(value)
+    formatted = str(strftime_format).replace(
+        "<<ordinal_day>>", ordinalize_number(time.day)
+    )
+    return time.strftime(formatted)
+
+
+def qr_code(
+    data: object,
+    size: int = 11,
+    level: object = "",
+    view: object = "responsive",
+) -> str:
+    return render_qr_svg(data, size=size, level=level, view=view)

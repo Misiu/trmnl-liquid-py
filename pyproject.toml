@@ -4,15 +4,15 @@ build-backend = "hatchling.build"
 
 [project]
 name = "trmnl-liquid-py"
-version = "0.0.0"
-description = "Python port of TRMNL Liquid with differential compatibility testing"
+dynamic = ["version"]
+description = "TRMNL Liquid 0.8.2 compatibility layer for Python"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
-authors = [{ name = "Tomasz Jagusz" }]
+authors = [{ name = "Misiu" }]
 keywords = ["trmnl", "liquid", "templates", "home-assistant"]
 classifiers = [
-  "Development Status :: 2 - Pre-Alpha",
+  "Development Status :: 3 - Alpha",
   "License :: OSI Approved :: MIT License",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.11",
@@ -22,19 +22,36 @@ classifiers = [
   "Typing :: Typed",
 ]
 dependencies = [
+  "mistune==3.3.4",
+  "python-dateutil==2.9.0.post0",
   "python-liquid==2.3.1",
+  "qrcode==8.2",
 ]
 
 [project.urls]
 Homepage = "https://github.com/Misiu/trmnl-liquid-py"
 Repository = "https://github.com/Misiu/trmnl-liquid-py"
 Issues = "https://github.com/Misiu/trmnl-liquid-py/issues"
+Changelog = "https://github.com/Misiu/trmnl-liquid-py/blob/main/CHANGELOG.md"
+
+[tool.hatch.version]
+path = "src/trmnl_liquid/__about__.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/trmnl_liquid"]
 
+[tool.hatch.build.targets.sdist]
+include = [
+  "src/trmnl_liquid",
+  "README.md",
+  "CHANGELOG.md",
+  "LICENSE",
+  "pyproject.toml",
+]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]
 addopts = "-ra --strict-config --strict-markers"
 
 [tool.ruff]
@@ -56,4 +73,6 @@ dev = [
   "pytest>=8.4",
   "ruff>=0.12",
   "twine>=6.1",
+  "types-python-dateutil==2.9.0.20260807",
+  "types-qrcode==8.2.0.20260518",
 ]
