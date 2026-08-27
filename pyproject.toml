@@ -40,6 +40,15 @@ path = "src/trmnl_liquid/__about__.py"
 [tool.hatch.build.targets.wheel]
 packages = ["src/trmnl_liquid"]
 
+[tool.hatch.build.targets.sdist]
+include = [
+  "src/trmnl_liquid",
+  "README.md",
+  "CHANGELOG.md",
+  "LICENSE",
+  "pyproject.toml",
+]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
