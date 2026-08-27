@@ -107,9 +107,13 @@ def map_to_i(collection: Iterable[object]) -> list[int]:
     return [ruby_to_i(item) for item in collection]
 
 
-def pluralize(singular: str, count: object, options: Mapping[str, object] | None = None) -> str:
-    options = options or {}
-    plural = options.get("plural")
+def pluralize(
+    singular: str,
+    count: object,
+    *,
+    plural: object | None = None,
+    locale: object | None = None,  # noqa: ARG001
+) -> str:
     plural_word = str(plural) if plural is not None else f"{singular}s"
     numeric_count = ruby_to_i(count)
     return f"1 {singular}" if numeric_count == 1 else f"{count} {plural_word}"
