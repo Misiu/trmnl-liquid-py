@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from generated_cases import generated_cases
+
 from trmnl_liquid import Environment
 
 ROOT = Path(__file__).resolve().parents[1]
