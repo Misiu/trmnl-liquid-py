@@ -1,0 +1,17 @@
+[
+  {"name":"number delimiter","template":"{{ 1234 | number_with_delimiter }}","data":{}},
+  {"name":"custom number separators","template":"{{ 1234.57 | number_with_delimiter: \" \", \",\" }}","data":{}},
+  {"name":"currency default","template":"{{ 10420 | number_to_currency }}","data":{}},
+  {"name":"currency custom","template":"{{ 1234.57 | number_to_currency: \"£\", \".\", \",\" }}","data":{}},
+  {"name":"currency precision zero","template":"{{ 10420 | number_to_currency: \"$\", \",\", \".\", 0 }}","data":{}},
+  {"name":"map to integer","template":"{% assign nums = \"5, 4, 3, 2, 1\" | split: \", \" | map_to_i %}{{ nums }}","data":{}},
+  {"name":"map invalid to zero","template":"{% assign nums = \"a, b, c\" | split: \", \" | map_to_i %}{{ nums }}","data":{}},
+  {"name":"json","template":"{{ data | json }}","data":{"data":[{"a":1,"b":"c"},"d"]}},
+  {"name":"parse json","template":"{% assign value = data | parse_json %}{{ value.a }}","data":{"data":"{\"a\":1,\"b\":\"c\"}"}},
+  {"name":"find fallback","template":"{{ collection | find_by: 'name', 'ronak', 'Not Found' }}","data":{"collection":[{"name":"Ryan","age":35}]}},
+  {"name":"plural zero","template":"{{ \"book\" | pluralize: 0 }}","data":{}},
+  {"name":"plural one","template":"{{ \"book\" | pluralize: 1 }}","data":{}},
+  {"name":"plural explicit","template":"{{ \"person\" | pluralize: 4, plural: \"humans\" }}","data":{}},
+  {"name":"l_word fallback","template":"{{ \"today\" | l_word: \"es-ES\" }}","data":{}},
+  {"name":"l_date fallback","template":"{{ \"2025-01-11\" | l_date: \"%y %b\" }}","data":{}}
+]
