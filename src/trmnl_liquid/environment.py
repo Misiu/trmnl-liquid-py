@@ -14,6 +14,7 @@ from liquid.template import BoundTemplate
 
 from . import filters
 from .memory_system import MemorySystem
+from .template import TRMNLBoundTemplate
 from .template_tag import TemplateTag
 
 _QR_COMMA_ARGUMENTS = re.compile(r"(\|\s*qr_code)\s*,")
@@ -25,6 +26,11 @@ def _normalize_trmnl_syntax(source: str) -> str:
     Ruby Liquid accepts a comma between a filter name and its first argument.
     TRMNL 0.8.2 uses that form in its documented/tested ``qr_code`` surface.
     Python Liquid requires a colon, so normalize only that TRMNL-specific form.
+
+    Ruby/TRMNL reference:
+    https://github.com/usetrmnl/trmnl-liquid/blob/0.8.2/spec/trmnl/liquid/filters_spec.rb
+    Python parser reference:
+    https://github.com/jg-rp/liquid/blob/v2.3.1/liquid/builtin/output.py
     """
     return _QR_COMMA_ARGUMENTS.sub(r"\1:", source)
 
@@ -34,7 +40,16 @@ class Environment(LiquidEnvironment):
 
     Defaults intentionally follow Ruby Liquid's non-autoescaped, lax rendering
     model rather than OpenDisplay Studio's previous hardened POC settings.
+
+    python-liquid exposes ``template_class`` as the supported extension point for
+    changing bound-template behavior. TRMNL uses it to reproduce Ruby Liquid's
+    runtime-error rendering semantics without modifying loaders or built-in tags.
+
+    Python reference:
+    https://github.com/jg-rp/liquid/blob/v2.3.1/liquid/environment.py
     """
+
+    template_class = TRMNLBoundTemplate
 
     def __init__(
         self,
@@ -84,7 +99,7 @@ class Environment(LiquidEnvironment):
         globals: Mapping[str, object] | None = None,
         matter: Mapping[str, object] | None = None,
     ) -> BoundTemplate:
-        """Parse source after applying TRMNL/Ruby Liquid syntax compatibility shims."""
+        """Parse source after applying TRMNL/Ruby Liquid syntax compatibility."""
         return super().from_string(
             _normalize_trmnl_syntax(source),
             name=name,
