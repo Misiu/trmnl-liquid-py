@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
+from pathlib import Path
 from typing import Any
 
 from liquid import Environment as LiquidEnvironment
 from liquid import Mode
 from liquid.loader import BaseLoader
+from liquid.template import BoundTemplate
 
 from . import filters
 from .memory_system import MemorySystem
@@ -77,10 +80,10 @@ class Environment(LiquidEnvironment):
         self,
         source: str,
         name: str = "",
-        path: str | None = None,
-        globals: dict[str, object] | None = None,
-        matter: dict[str, object] | None = None,
-    ):
+        path: str | Path | None = None,
+        globals: Mapping[str, object] | None = None,
+        matter: Mapping[str, object] | None = None,
+    ) -> BoundTemplate:
         """Parse source after applying TRMNL/Ruby Liquid syntax compatibility shims."""
         return super().from_string(
             _normalize_trmnl_syntax(source),
