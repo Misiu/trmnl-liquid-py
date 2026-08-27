@@ -7,7 +7,6 @@ compatibility target; fallback behavior is implemented instead.
 
 from __future__ import annotations
 
-import html
 import json as _json
 import re
 import secrets
@@ -16,13 +15,13 @@ from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 from zoneinfo import ZoneInfo
 
-import mistune
 from dateutil import parser as date_parser
 from liquid import Token, TokenStream
 from liquid.builtin.expressions import BooleanExpression, tokenize
 from liquid.filter import with_context
 from liquid.token import TOKEN_EXPRESSION
 
+from .markdown import markdown_to_html
 from .qr import render_qr_svg
 from .ruby_values import ruby_wrap
 
@@ -31,52 +30,6 @@ if TYPE_CHECKING:
 
 _NUMERIC = re.compile(r"^-?\d+(?:\.\d+)?$")
 _TO_I = re.compile(r"^[\s]*([+-]?\d+)")
-_MARKDOWN_BLOCK_TYPES = frozenset(
-    {
-        "block_code",
-        "block_error",
-        "block_html",
-        "block_quote",
-        "footnote_def",
-        "footnotes",
-        "heading",
-        "list",
-        "paragraph",
-        "table",
-        "thematic_break",
-    }
-)
-
-
-class _RedcarpetLikeRenderer(mistune.HTMLRenderer):
-    """Use Redcarpet-compatible output for the supported Markdown surface."""
-
-    def text(self, text: str) -> str:
-        return html.escape(text, quote=True).replace("&#x27;", "&#39;")
-
-    def render_tokens(self, tokens: Iterable[dict[str, Any]], state: Any) -> str:
-        parts: list[str] = []
-        has_output = False
-        for token in tokens:
-            rendered = self.render_token(token, state)
-            if not rendered:
-                continue
-            if has_output and token.get("type") in _MARKDOWN_BLOCK_TYPES:
-                parts.append("\n")
-            parts.append(rendered)
-            has_output = True
-        return "".join(parts)
-
-    def thematic_break(self) -> str:
-        return "<hr>\n"
-
-    def block_code(self, code: str, info: str | None = None) -> str:
-        if code and not code.endswith("\n"):
-            code += "\n"
-        return super().block_code(code, info)
-
-
-_MARKDOWN = mistune.create_markdown(renderer=_RedcarpetLikeRenderer())
 
 
 def ruby_to_i(value: object) -> int:
@@ -117,11 +70,6 @@ def find_by(
         if isinstance(item, Mapping) and item.get(key) == value:
             return ruby_wrap(item)
     return fallback
-
-
-def markdown_to_html(markdown: object) -> str:
-    value = "" if markdown is None else str(markdown)
-    return str(_MARKDOWN(value))
 
 
 def number_with_delimiter(
