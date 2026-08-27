@@ -22,9 +22,15 @@ def ruby_render(case: dict[str, object]) -> dict[str, object]:
         cwd=RUBY_DIR,
         input=payload + "\n",
         text=True,
-        check=True,
+        check=False,
         capture_output=True,
     )
+    if completed.returncode != 0:
+        return {
+            "ok": False,
+            "oracle_process_error": completed.returncode,
+            "stderr": completed.stderr.strip(),
+        }
     return json.loads(completed.stdout.strip())
 
 
