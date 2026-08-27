@@ -1,3 +1,6 @@
 source "https://rubygems.org"
 
+# Liquid 5.13 requires base64, which stopped being a Ruby default gem in Ruby 3.4.
+# This is an oracle-only dependency; it is not part of trmnl-liquid-py's runtime.
+gem "base64", "~> 0.3"
 gem "trmnl-liquid", "= 0.8.2"
