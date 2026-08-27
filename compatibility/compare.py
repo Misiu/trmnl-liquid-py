@@ -32,7 +32,7 @@ def python_render(case: dict[str, object]) -> dict[str, object]:
     try:
         template = Environment().from_string(str(case["template"]))
         output = template.render(case.get("data", {}))
-    except Exception as error:  # noqa: BLE001 - differential runner must capture engine errors
+    except Exception as error:
         return {
             "ok": False,
             "error_class": type(error).__name__,
