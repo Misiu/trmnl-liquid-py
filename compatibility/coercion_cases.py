@@ -45,6 +45,8 @@ def coercion_cases() -> list[dict[str, Any]]:
         (None, "item", None),
         (2, "person", "people"),
         (0, "mouse", "mice"),
+        (True, "item", None),
+        (False, "item", None),
     ]
     for index, (count, singular, plural) in enumerate(plural_cases):
         template = "{{ singular | pluralize: count }}"
@@ -144,5 +146,5 @@ def coercion_cases() -> list[dict[str, Any]]:
             }
         )
 
-    assert len(cases) == 50
+    assert len(cases) == 52
     return cases
