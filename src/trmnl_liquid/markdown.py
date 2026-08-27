@@ -145,23 +145,32 @@ class _RedcarpetInlineParser(mistune.InlineParser):
 class _RedcarpetBlockParser(mistune.BlockParser):
     """Use Redcarpet's default block grammar instead of Mistune CommonMark extras."""
 
-    # `fenced_code_blocks` is an opt-in Redcarpet extension and TRMNL passes an
-    # empty extension hash. Mistune enables fenced code in its default block rules.
-    DEFAULT_RULES = tuple(
-        rule for rule in mistune.BlockParser.DEFAULT_RULES if rule != "fenced_code"
-    )
     SPECIFICATION: ClassVar[dict[str, str]] = {
         **mistune.BlockParser.SPECIFICATION,
         "redcarpet_list_indented_paragraph": _LIST_INDENTED_PARAGRAPH,
     }
 
     def __init__(self) -> None:
+        # `fenced_code_blocks` is opt-in in Redcarpet and TRMNL passes no parser
+        # extensions. Mistune exposes active rules per parser instance through
+        # Parser.rules, so keep its class-level DEFAULT_RULES untouched and
+        # configure this adapter instance instead.
+        # https://github.com/lepture/mistune/blob/v3.3.4/src/mistune/core.py
+        default_rules = [
+            rule
+            for rule in mistune.BlockParser.DEFAULT_RULES
+            if rule != "fenced_code"
+        ]
         list_rules: list[str] = []
-        for rule in self.DEFAULT_RULES:
+        for rule in default_rules:
             if rule == "indent_code":
                 list_rules.append("redcarpet_list_indented_paragraph")
             list_rules.append(rule)
-        super().__init__(list_rules=list_rules)
+        super().__init__(
+            block_quote_rules=default_rules.copy(),
+            list_rules=list_rules,
+        )
+        self.rules = default_rules
 
     def parse_redcarpet_list_indented_paragraph(
         self,
