@@ -7,8 +7,14 @@ python-liquid reports them to ``Environment.error()`` and emits no text.
 Compatibility references:
 - Ruby Liquid 5.13 node error handling:
   https://github.com/Shopify/liquid/blob/v5.13.0/lib/liquid/block_body.rb
+- Ruby Liquid 5.13 context error conversion:
+  https://github.com/Shopify/liquid/blob/v5.13.0/lib/liquid/context.rb
 - Ruby Liquid 5.13 error formatting:
   https://github.com/Shopify/liquid/blob/v5.13.0/lib/liquid/errors.rb
+- python-liquid 2.3.1 filtered-expression error conversion:
+  https://github.com/jg-rp/liquid/blob/v2.3.1/liquid/builtin/expressions/filtered.py
+- python-liquid 2.3.1 node ``blank`` contract:
+  https://github.com/jg-rp/liquid/blob/v2.3.1/liquid/ast.py
 - python-liquid 2.3.1 BoundTemplate rendering:
   https://github.com/jg-rp/liquid/blob/v2.3.1/liquid/template.py
 - python-liquid 2.3.1 documented ``Environment.template_class`` extension point:
@@ -23,6 +29,7 @@ from liquid.exceptions import (
     LiquidError,
     LiquidInterrupt,
     LiquidSyntaxError,
+    LiquidTypeError,
     StopRender,
     TemplateNotFoundError,
 )
@@ -44,14 +51,35 @@ def _ruby_template_not_found_message(error: TemplateNotFoundError) -> str:
     return f"Liquid error: Template not found: {name}."
 
 
+def _ruby_internal_error_message(error: LiquidError) -> str | None:
+    """Map host-language filter errors to Ruby Liquid's generic internal error.
+
+    Ruby Liquid's ``Context#handle_error`` converts non-``Liquid::Error``
+    exceptions to ``Liquid::InternalError('internal')``. python-liquid instead
+    wraps a Python ``TypeError`` raised by a filter in ``LiquidTypeError`` before
+    the template node sees it. The original exception remains available as the
+    standard Python exception cause, which lets us reproduce Ruby's behavior
+    without changing filter return values or parsing internals.
+    """
+    if isinstance(error, LiquidTypeError) and isinstance(error.__cause__, TypeError):
+        return "Liquid error: internal"
+    return None
+
+
+def _render_liquid_error(error: LiquidError, *, node_blank: bool, buffer: TextIO) -> None:
+    """Render the subset of runtime errors whose Ruby form emits node output."""
+    message = _ruby_internal_error_message(error)
+    if message is not None and not node_blank:
+        buffer.write(message)
+
+
 class TRMNLBoundTemplate(BoundTemplate):
     """BoundTemplate with Ruby Liquid-compatible runtime error output.
 
     ``Environment.template_class`` is the public python-liquid extension point for
     replacing the bound template implementation. We keep python-liquid's rendering
-    algorithm and change only the known semantic difference needed by TRMNL's
-    MemorySystem: a missing rendered template is emitted as a Ruby Liquid runtime
-    error instead of being silently swallowed in lax mode.
+    algorithm and adapt only evidenced runtime-error output differences required by
+    the TRMNL 0.8.2 compatibility surface.
     """
 
     def render_with_context(
@@ -63,8 +91,7 @@ class TRMNLBoundTemplate(BoundTemplate):
         block_scope: bool = False,
         **kwargs: object,
     ) -> None:
-        """Render using python-liquid's node loop with Ruby missing-template output."""
-        # Import here only for typing/runtime parity with BoundTemplate's context class.
+        """Render using python-liquid's node loop with Ruby runtime-error output."""
         from liquid.context import RenderContext
 
         if not isinstance(context, RenderContext):
@@ -90,6 +117,7 @@ class TRMNLBoundTemplate(BoundTemplate):
                     buffer.write(_ruby_template_not_found_message(error))
                     self.env.error(error, token=node.token)
                 except LiquidError as error:
+                    _render_liquid_error(error, node_blank=node.blank, buffer=buffer)
                     self.env.error(error, token=node.token)
 
     async def render_with_context_async(
@@ -127,4 +155,5 @@ class TRMNLBoundTemplate(BoundTemplate):
                     buffer.write(_ruby_template_not_found_message(error))
                     self.env.error(error, token=node.token)
                 except LiquidError as error:
+                    _render_liquid_error(error, node_blank=node.blank, buffer=buffer)
                     self.env.error(error, token=node.token)
