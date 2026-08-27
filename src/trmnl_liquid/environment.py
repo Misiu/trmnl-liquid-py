@@ -2,37 +2,17 @@
 
 from __future__ import annotations
 
-import re
-from collections.abc import Mapping
-from pathlib import Path
 from typing import Any
 
 from liquid import Environment as LiquidEnvironment
 from liquid import Mode
 from liquid.loader import BaseLoader
-from liquid.template import BoundTemplate
 
 from . import filters
+from .liquid_syntax import RubyLaxAssignTag, RubyLaxEchoTag, RubyLaxOutput
 from .memory_system import MemorySystem
 from .template import TRMNLBoundTemplate
 from .template_tag import TemplateTag
-
-_QR_COMMA_ARGUMENTS = re.compile(r"(\|\s*qr_code)\s*,")
-
-
-def _normalize_trmnl_syntax(source: str) -> str:
-    """Normalize Ruby Liquid syntax not accepted by python-liquid.
-
-    Ruby Liquid accepts a comma between a filter name and its first argument.
-    TRMNL 0.8.2 uses that form in its documented/tested ``qr_code`` surface.
-    Python Liquid requires a colon, so normalize only that TRMNL-specific form.
-
-    Ruby/TRMNL reference:
-    https://github.com/usetrmnl/trmnl-liquid/blob/0.8.2/spec/trmnl/liquid/filters_spec.rb
-    Python parser reference:
-    https://github.com/jg-rp/liquid/blob/v2.3.1/liquid/builtin/output.py
-    """
-    return _QR_COMMA_ARGUMENTS.sub(r"\1:", source)
 
 
 class Environment(LiquidEnvironment):
@@ -72,7 +52,18 @@ class Environment(LiquidEnvironment):
         kwargs.setdefault("tolerance", Mode.LAX)
         super().__init__(**kwargs)
 
+        # python-liquid registers tags by name, so add_tag() is the public extension
+        # point for replacing a built-in parser while keeping its runtime nodes.
+        # We replace only the three built-ins that parse FilteredExpression.
+        #
+        # Python references:
+        # https://github.com/jg-rp/liquid/blob/v2.3.1/liquid/environment.py
+        # https://github.com/jg-rp/liquid/blob/v2.3.1/liquid/builtin/__init__.py
+        self.add_tag(RubyLaxOutput)
+        self.add_tag(RubyLaxAssignTag)
+        self.add_tag(RubyLaxEchoTag)
         self.add_tag(TemplateTag)
+
         self.add_filter("append_random", filters.append_random)
         self.add_filter("days_ago", filters.days_ago)
         self.add_filter("group_by", filters.group_by)
@@ -90,23 +81,6 @@ class Environment(LiquidEnvironment):
         self.add_filter("where_exp", filters.where_exp)
         self.add_filter("ordinalize", filters.ordinalize)
         self.add_filter("qr_code", filters.qr_code)
-
-    def from_string(
-        self,
-        source: str,
-        name: str = "",
-        path: str | Path | None = None,
-        globals: Mapping[str, object] | None = None,
-        matter: Mapping[str, object] | None = None,
-    ) -> BoundTemplate:
-        """Parse source after applying TRMNL/Ruby Liquid syntax compatibility."""
-        return super().from_string(
-            _normalize_trmnl_syntax(source),
-            name=name,
-            path=path,
-            globals=globals,
-            matter=matter,
-        )
 
 
 def render(source: str, /, **data: object) -> str:
