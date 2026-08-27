@@ -81,6 +81,7 @@ def _handle_runtime_error(
     buffer: TextIO,
 ) -> int:
     """Handle one failed node using Ruby Liquid ``BlockBody`` semantics."""
+    message: str | None
     if isinstance(error, TemplateNotFoundError):
         message = _ruby_template_not_found_message(error)
     else:
