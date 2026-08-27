@@ -22,7 +22,10 @@ classifiers = [
   "Typing :: Typed",
 ]
 dependencies = [
+  "mistune==3.3.4",
+  "python-dateutil==2.9.0.post0",
   "python-liquid==2.3.1",
+  "qrcode==8.2",
 ]
 
 [project.urls]
@@ -56,4 +59,6 @@ dev = [
   "pytest>=8.4",
   "ruff>=0.12",
   "twine>=6.1",
+  "types-python-dateutil==2.9.0.20260807",
+  "types-qrcode==8.2.0.20260518",
 ]
