@@ -21,7 +21,7 @@ from liquid.builtin.expressions import BooleanExpression, tokenize
 from liquid.filter import with_context
 from liquid.token import TOKEN_EXPRESSION
 
-from .markdown import markdown_to_html
+from .markdown import markdown_to_html as _markdown_to_html
 from .qr import render_qr_svg
 from .ruby_values import ruby_wrap
 
@@ -70,6 +70,11 @@ def find_by(
         if isinstance(item, Mapping) and item.get(key) == value:
             return ruby_wrap(item)
     return fallback
+
+
+def markdown_to_html(markdown: object) -> str:
+    """Render Markdown using TRMNL 0.8.2 / Redcarpet-compatible semantics."""
+    return _markdown_to_html(markdown)
 
 
 def number_with_delimiter(
