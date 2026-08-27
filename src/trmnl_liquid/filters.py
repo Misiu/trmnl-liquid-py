@@ -17,7 +17,6 @@ from typing import TYPE_CHECKING, Any
 from zoneinfo import ZoneInfo
 
 import mistune
-import qrcode
 from dateutil import parser as date_parser
 from liquid import Token, TokenStream
 from liquid.builtin.expressions import BooleanExpression, tokenize
@@ -25,6 +24,7 @@ from liquid.filter import with_context
 from liquid.token import TOKEN_EXPRESSION
 from qrcode.constants import ERROR_CORRECT_H, ERROR_CORRECT_L, ERROR_CORRECT_M, ERROR_CORRECT_Q
 
+from .qr_compat import RQRCodeCompatibleQRCode
 from .ruby_values import ruby_wrap
 
 if TYPE_CHECKING:
@@ -372,7 +372,7 @@ def qr_code(
         "h": ERROR_CORRECT_H,
     }[level_name]
 
-    qr = qrcode.QRCode(
+    qr = RQRCodeCompatibleQRCode(
         version=None,
         error_correction=correction,
         box_size=1,
