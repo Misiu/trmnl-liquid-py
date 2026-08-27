@@ -1,16 +1,18 @@
 """TRMNL-compatible template rendering semantics.
 
 Ruby Liquid and python-liquid differ in how runtime node errors are rendered in lax
-mode. Ruby Liquid renders most runtime errors into the output stream, while
-python-liquid reports them to ``Environment.error()`` and emits no text.
+mode. Ruby Liquid handles errors per node in every ``BlockBody`` and continues with
+the remaining nodes, while python-liquid's ``BlockNode`` stops at the first exception.
 
 Compatibility references:
-- Ruby Liquid 5.13 node error handling:
+- Ruby Liquid 5.13 per-node block error handling:
   https://github.com/Shopify/liquid/blob/v5.13.0/lib/liquid/block_body.rb
 - Ruby Liquid 5.13 context error conversion:
   https://github.com/Shopify/liquid/blob/v5.13.0/lib/liquid/context.rb
 - Ruby Liquid 5.13 error formatting:
   https://github.com/Shopify/liquid/blob/v5.13.0/lib/liquid/errors.rb
+- python-liquid 2.3.1 BlockNode rendering:
+  https://github.com/jg-rp/liquid/blob/v2.3.1/liquid/ast.py
 - python-liquid 2.3.1 filtered-expression error conversion:
   https://github.com/jg-rp/liquid/blob/v2.3.1/liquid/builtin/expressions/filtered.py
 - python-liquid 2.3.1 node ``blank`` contract:
@@ -23,8 +25,10 @@ Compatibility references:
 
 from __future__ import annotations
 
-from typing import TextIO
+from io import StringIO
+from typing import TYPE_CHECKING, TextIO
 
+from liquid.ast import BlockNode, Node
 from liquid.exceptions import (
     LiquidError,
     LiquidInterrupt,
@@ -34,6 +38,9 @@ from liquid.exceptions import (
     TemplateNotFoundError,
 )
 from liquid.template import BoundTemplate
+
+if TYPE_CHECKING:
+    from liquid.context import RenderContext
 
 
 def _ruby_template_not_found_message(error: TemplateNotFoundError) -> str:
@@ -66,20 +73,103 @@ def _ruby_internal_error_message(error: LiquidError) -> str | None:
     return None
 
 
-def _render_liquid_error(error: LiquidError, *, node_blank: bool, buffer: TextIO) -> None:
-    """Render the subset of runtime errors whose Ruby form emits node output."""
-    message = _ruby_internal_error_message(error)
-    if message is not None and not node_blank:
-        buffer.write(message)
+def _handle_runtime_error(
+    error: LiquidError,
+    *,
+    node: Node,
+    context: RenderContext,
+    buffer: TextIO,
+) -> int:
+    """Handle one failed node using Ruby Liquid ``BlockBody`` semantics."""
+    if isinstance(error, TemplateNotFoundError):
+        message = _ruby_template_not_found_message(error)
+    else:
+        message = _ruby_internal_error_message(error)
+
+    written = 0
+    if message is not None and not node.blank:
+        written = buffer.write(message)
+
+    context.env.error(error, token=node.token)
+    return written
+
+
+class TRMNLBlockNode(BlockNode):
+    """BlockNode that rescues runtime errors per child node like Ruby Liquid.
+
+    python-liquid 2.3.1 renders a block with ``sum(node.render(...) ...)``. A single
+    failed child therefore aborts the remainder of that block. Ruby Liquid 5.13
+    rescues each node independently in ``BlockBody.render_node`` and then continues.
+    Loop interrupts and ``StopRender`` are deliberately not caught here because they
+    are control-flow signals, not runtime errors.
+    """
+
+    def render_to_output(self, context: RenderContext, buffer: TextIO) -> int:
+        target: TextIO = buffer
+        discard_output = context.env.suppress_blank_control_flow_blocks and self.blank
+        if discard_output:
+            target = StringIO()
+
+        character_count = 0
+        for node in self.nodes:
+            try:
+                character_count += node.render(context, target)
+            except TemplateNotFoundError as error:
+                character_count += _handle_runtime_error(
+                    error,
+                    node=node,
+                    context=context,
+                    buffer=target,
+                )
+            except LiquidError as error:
+                character_count += _handle_runtime_error(
+                    error,
+                    node=node,
+                    context=context,
+                    buffer=target,
+                )
+
+        return 0 if discard_output else character_count
+
+    async def render_to_output_async(
+        self,
+        context: RenderContext,
+        buffer: TextIO,
+    ) -> int:
+        target: TextIO = buffer
+        discard_output = context.env.suppress_blank_control_flow_blocks and self.blank
+        if discard_output:
+            target = StringIO()
+
+        character_count = 0
+        for node in self.nodes:
+            try:
+                character_count += await node.render_async(context, target)
+            except TemplateNotFoundError as error:
+                character_count += _handle_runtime_error(
+                    error,
+                    node=node,
+                    context=context,
+                    buffer=target,
+                )
+            except LiquidError as error:
+                character_count += _handle_runtime_error(
+                    error,
+                    node=node,
+                    context=context,
+                    buffer=target,
+                )
+
+        return 0 if discard_output else character_count
 
 
 class TRMNLBoundTemplate(BoundTemplate):
-    """BoundTemplate with Ruby Liquid-compatible runtime error output.
+    """BoundTemplate with Ruby Liquid-compatible top-level runtime errors.
 
     ``Environment.template_class`` is the public python-liquid extension point for
-    replacing the bound template implementation. We keep python-liquid's rendering
-    algorithm and adapt only evidenced runtime-error output differences required by
-    the TRMNL 0.8.2 compatibility surface.
+    replacing the bound template implementation. Nested blocks use
+    :class:`TRMNLBlockNode`, while this class applies the same per-node semantics to
+    the root node list.
     """
 
     def render_with_context(
@@ -114,11 +204,19 @@ class TRMNLBoundTemplate(BoundTemplate):
                 except StopRender:
                     break
                 except TemplateNotFoundError as error:
-                    buffer.write(_ruby_template_not_found_message(error))
-                    self.env.error(error, token=node.token)
+                    _handle_runtime_error(
+                        error,
+                        node=node,
+                        context=context,
+                        buffer=buffer,
+                    )
                 except LiquidError as error:
-                    _render_liquid_error(error, node_blank=node.blank, buffer=buffer)
-                    self.env.error(error, token=node.token)
+                    _handle_runtime_error(
+                        error,
+                        node=node,
+                        context=context,
+                        buffer=buffer,
+                    )
 
     async def render_with_context_async(
         self,
@@ -152,8 +250,16 @@ class TRMNLBoundTemplate(BoundTemplate):
                 except StopRender:
                     break
                 except TemplateNotFoundError as error:
-                    buffer.write(_ruby_template_not_found_message(error))
-                    self.env.error(error, token=node.token)
+                    _handle_runtime_error(
+                        error,
+                        node=node,
+                        context=context,
+                        buffer=buffer,
+                    )
                 except LiquidError as error:
-                    _render_liquid_error(error, node_blank=node.blank, buffer=buffer)
-                    self.env.error(error, token=node.token)
+                    _handle_runtime_error(
+                        error,
+                        node=node,
+                        context=context,
+                        buffer=buffer,
+                    )
