@@ -4,6 +4,7 @@ import json
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any
 
 from trmnl_liquid import Environment
 
@@ -12,29 +13,43 @@ CASES = ROOT / "compatibility" / "cases.json"
 RUBY_DIR = ROOT / "compatibility" / "ruby"
 
 
-def ruby_render(case: dict[str, object]) -> dict[str, object]:
-    payload = json.dumps(
-        {"template": case["template"], "data": case.get("data", {})},
-        ensure_ascii=False,
+def ruby_render_all(cases: list[dict[str, Any]]) -> list[dict[str, object]]:
+    payload = "".join(
+        json.dumps(
+            {"template": case["template"], "data": case.get("data", {})},
+            ensure_ascii=False,
+        )
+        + "\n"
+        for case in cases
     )
     completed = subprocess.run(
         ["bundle", "exec", "ruby", "render.rb"],
         cwd=RUBY_DIR,
-        input=payload + "\n",
+        input=payload,
         text=True,
         check=False,
         capture_output=True,
     )
     if completed.returncode != 0:
-        return {
+        error = {
             "ok": False,
             "oracle_process_error": completed.returncode,
             "stderr": completed.stderr.strip(),
         }
-    return json.loads(completed.stdout.strip())
+        return [error.copy() for _ in cases]
+
+    outputs = [json.loads(line) for line in completed.stdout.splitlines() if line.strip()]
+    if len(outputs) != len(cases):
+        error = {
+            "ok": False,
+            "oracle_protocol_error": f"expected {len(cases)} results, got {len(outputs)}",
+            "stderr": completed.stderr.strip(),
+        }
+        return [error.copy() for _ in cases]
+    return outputs
 
 
-def python_render(case: dict[str, object]) -> dict[str, object]:
+def python_render(case: dict[str, Any]) -> dict[str, object]:
     try:
         template = Environment().from_string(str(case["template"]))
         output = template.render(case.get("data", {}))
@@ -48,11 +63,11 @@ def python_render(case: dict[str, object]) -> dict[str, object]:
 
 
 def main() -> int:
-    cases = json.loads(CASES.read_text(encoding="utf-8"))
+    cases: list[dict[str, Any]] = json.loads(CASES.read_text(encoding="utf-8"))
+    ruby_results = ruby_render_all(cases)
     failures: list[tuple[str, dict[str, object], dict[str, object]]] = []
 
-    for case in cases:
-        ruby = ruby_render(case)
+    for case, ruby in zip(cases, ruby_results, strict=True):
         python = python_render(case)
         name = str(case["name"])
         if ruby != python:
