@@ -22,9 +22,8 @@ from liquid import Token, TokenStream
 from liquid.builtin.expressions import BooleanExpression, tokenize
 from liquid.filter import with_context
 from liquid.token import TOKEN_EXPRESSION
-from qrcode.constants import ERROR_CORRECT_H, ERROR_CORRECT_L, ERROR_CORRECT_M, ERROR_CORRECT_Q
 
-from .qr_compat import RQRCodeCompatibleQRCode
+from .qr import render_qr_svg
 from .ruby_values import ruby_wrap
 
 if TYPE_CHECKING:
@@ -257,159 +256,10 @@ def ordinalize(value: object, strftime_format: object) -> str:
     return time.strftime(formatted)
 
 
-Edge = tuple[int, int, int]
-
-
-def _qr_path(modules: list[list[bool]]) -> str:
-    dir_up, dir_down, dir_left, dir_right = range(4)
-    deltas = ((0, -1), (0, 1), (-1, 0), (1, 0))
-    commands = ("v-", "v", "h-", "h")
-
-    module_count = len(modules)
-    matrix_size = module_count + 1
-    edge_matrix: list[list[list[Edge] | None]] = [
-        [None for _ in range(matrix_size)] for _ in range(matrix_size)
-    ]
-    edge_count = 0
-
-    def add_edge(x: int, y: int, direction: int) -> None:
-        nonlocal edge_count
-        cell = edge_matrix[y][x]
-        if cell is None:
-            cell = []
-            edge_matrix[y][x] = cell
-        cell.append((x, y, direction))
-        edge_count += 1
-
-    for row_index in range(module_count + 1):
-        for col_index in range(module_count):
-            above = row_index > 0 and modules[row_index - 1][col_index]
-            below = row_index < module_count and modules[row_index][col_index]
-            if above and not below:
-                add_edge(col_index + 1, row_index, dir_left)
-            elif not above and below:
-                add_edge(col_index, row_index, dir_right)
-
-    for row_index in range(module_count):
-        for col_index in range(module_count + 1):
-            left = col_index > 0 and modules[row_index][col_index - 1]
-            right = col_index < module_count and modules[row_index][col_index]
-            if left and not right:
-                add_edge(col_index, row_index, dir_down)
-            elif not left and right:
-                add_edge(col_index, row_index + 1, dir_up)
-
-    path_parts: list[str] = []
-    search_y = 0
-    search_x = 0
-
-    while edge_count > 0:
-        start_edge: Edge | None = None
-        found_y = search_y
-        found_x = search_x
-        for y in range(search_y, matrix_size):
-            start_col = search_x if y == search_y else 0
-            for x in range(start_col, matrix_size):
-                cell = edge_matrix[y][x]
-                if cell:
-                    start_edge = cell[0]
-                    found_y = y
-                    found_x = x
-                    break
-            if start_edge is not None:
-                break
-
-        if start_edge is None:
-            break
-
-        search_y = found_y
-        search_x = found_x
-        path = f"M{start_edge[0]} {start_edge[1]}"
-        current_edge: Edge | None = start_edge
-        current_dir: int | None = None
-        current_count = 0
-
-        while current_edge is not None:
-            x, y, direction = current_edge
-            cell = edge_matrix[y][x]
-            assert cell is not None
-            cell.remove(current_edge)
-            if not cell:
-                edge_matrix[y][x] = None
-            edge_count -= 1
-
-            if direction == current_dir:
-                current_count += 1
-            else:
-                if current_dir is not None:
-                    path += commands[current_dir] + str(current_count)
-                current_dir = direction
-                current_count = 1
-
-            dx, dy = deltas[direction]
-            next_cell = edge_matrix[y + dy][x + dx]
-            current_edge = next_cell[0] if next_cell else None
-
-        path_parts.append(path + "z")
-
-    return "".join(path_parts)
-
-
 def qr_code(
     data: object,
     size: int = 11,
     level: object = "",
     view: object = "responsive",
 ) -> str:
-    level_name = str(level).lower()
-    if level_name not in {"l", "m", "q", "h"}:
-        level_name = "h"
-
-    correction = {
-        "l": ERROR_CORRECT_L,
-        "m": ERROR_CORRECT_M,
-        "q": ERROR_CORRECT_Q,
-        "h": ERROR_CORRECT_H,
-    }[level_name]
-
-    qr = RQRCodeCompatibleQRCode(
-        version=None,
-        error_correction=correction,
-        box_size=1,
-        border=0,
-    )
-    qr.add_data(str(data))
-    qr.make(fit=True)
-    modules = [[bool(cell) for cell in row] for row in qr.get_matrix()]
-
-    module_size = int(size)
-    width = len(modules) * module_size
-    height = width
-    if str(view) == "responsive":
-        dimensions = f'viewBox="0 0 {width} {height}"'
-    else:
-        dimensions = f'width="{width}" height="{height}"'
-
-    attributes = " ".join(
-        (
-            'version="1.1"',
-            'xmlns="http://www.w3.org/2000/svg"',
-            'xmlns:xlink="http://www.w3.org/1999/xlink"',
-            'xmlns:ev="http://www.w3.org/2001/xml-events"',
-            dimensions,
-            'shape-rendering="crispEdges"',
-            'class="qr-code"',
-        )
-    )
-    dimension = max(width, height)
-    background = (
-        f'<rect width="{dimension}" height="{dimension}" x="0" y="0" fill="#fff"/>'
-    )
-    path = (
-        f'<path d="{_qr_path(modules)}" fill="#000" '
-        f'transform="translate(0,0) scale({module_size})"/>'
-    )
-    return (
-        '<?xml version="1.0" standalone="yes"?>'
-        f"<svg {attributes}>{background}{path}</svg>"
-    )
+    return render_qr_svg(data, size=size, level=level, view=view)
