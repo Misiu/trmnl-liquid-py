@@ -1,9 +1,8 @@
 """Generate and validate the README compatibility evidence block.
 
-The report uses the same checked-in fixed, generated, coercion, and upstream-spec
-corpora as the Ruby/Python compatibility gate. ``compare.py`` proves output
-equality; this module keeps the documented corpus and upstream-spec counts
-synchronized with those sources.
+The report uses the same checked-in fixed, generated, coercion, date/time, and
+upstream-spec corpora as the Ruby/Python compatibility gate. ``compare.py`` proves
+output equality; this module keeps documented counts synchronized with those sources.
 """
 
 from __future__ import annotations
@@ -15,6 +14,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from compatibility.coercion_cases import coercion_cases
+from compatibility.date_time_cases import date_time_cases
 from compatibility.generated_cases import generated_cases
 from compatibility.upstream_cases import upstream_differential_cases
 from compatibility.upstream_specs import UPSTREAM_SPEC_EXAMPLES
@@ -45,7 +45,9 @@ def collect_metrics() -> CompatibilityMetrics:
     if not isinstance(fixed, list):
         raise ValueError("compatibility/cases.json must contain a JSON array")
 
-    generated_count = len(generated_cases()) + len(coercion_cases())
+    generated_count = (
+        len(generated_cases()) + len(coercion_cases()) + len(date_time_cases())
+    )
     upstream_cases_count = len(upstream_differential_cases())
     statuses = Counter(example.status for example in UPSTREAM_SPEC_EXAMPLES)
 
