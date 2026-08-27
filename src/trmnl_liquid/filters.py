@@ -95,11 +95,13 @@ def number_to_currency(
     return f"{unit_or_locale}{dollars}{separator}{cents}"
 
 
-def l_word(word: object, locale: str) -> str:  # noqa: ARG001
+def l_word(word: object, locale: str) -> str:
+    del locale
     return f"custom_plugins.{word}"
 
 
-def l_date(value: object, format: str, locale: str = "en") -> str:  # noqa: ARG001,A002
+def l_date(value: object, format: str, locale: str = "en") -> str:
+    del format, locale
     return "" if value is None else str(value)
 
 
@@ -112,8 +114,9 @@ def pluralize(
     count: object,
     *,
     plural: object | None = None,
-    locale: object | None = None,  # noqa: ARG001
+    locale: object | None = None,
 ) -> str:
+    del locale
     plural_word = str(plural) if plural is not None else f"{singular}s"
     numeric_count = ruby_to_i(count)
     return f"1 {singular}" if numeric_count == 1 else f"{count} {plural_word}"
