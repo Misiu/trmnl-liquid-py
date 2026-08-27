@@ -33,8 +33,8 @@ from liquid.builtin.expressions import (
     tokenize,
 )
 from liquid.builtin.output import OutputNode
-from liquid.builtin.tags.assign_tag import AssignNode, TAG_ASSIGN
-from liquid.builtin.tags.echo_tag import EchoNode, TAG_ECHO
+from liquid.builtin.tags.assign_tag import TAG_ASSIGN, AssignNode
+from liquid.builtin.tags.echo_tag import TAG_ECHO, EchoNode
 from liquid.expression import Expression
 from liquid.stream import TokenStream
 from liquid.tag import Tag
