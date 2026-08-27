@@ -7,6 +7,7 @@ https://github.com/usetrmnl/trmnl-liquid/blob/0.8.2/lib/trmnl/liquid/filters.rb
 Redcarpet references:
 https://github.com/vmg/redcarpet/blob/v3.6.1/README.markdown
 https://github.com/vmg/redcarpet/blob/v3.6.1/ext/redcarpet/html.c
+https://github.com/vmg/redcarpet/blob/v3.6.1/ext/redcarpet/markdown.c
 
 Mistune 3.3.4 public parser/renderer extension points and token model:
 https://github.com/lepture/mistune/blob/v3.3.4/docs/advanced.rst
@@ -48,6 +49,7 @@ _MULTILINE_CODESPAN = re.compile(r"(.*?[^`])", re.S)
 _LIST_INDENTED_PARAGRAPH = (
     r"^(?: {4}(?! )[^\n]*(?:\n|$))(?: {4}(?! )[^\n]*(?:\n|$))*"
 )
+_NESTED_LIST_ATTR = "redcarpet_nested_list"
 
 
 def _escape_text_preserving_entities(text: str) -> str:
@@ -108,11 +110,17 @@ class _RedcarpetInlineParser(mistune.InlineParser):
     """Adapt Mistune inline grammar to Redcarpet's default extension set."""
 
     # Redcarpet treats two trailing spaces as a hard break, but a backslash before
-    # a newline remains literal with the default extension set. Mistune's default
-    # linebreak rule treats both forms as hard breaks.
+    # a newline remains literal with the default extension set. Redcarpet also
+    # leaves whitespace after an ordinary newline for inline text processing,
+    # whereas Mistune's CommonMark softbreak consumes it.
+    # Ruby reference:
+    # https://github.com/vmg/redcarpet/blob/v3.6.1/ext/redcarpet/markdown.c
+    # Python reference:
+    # https://github.com/lepture/mistune/blob/v3.3.4/src/mistune/inline_parser.py
     SPECIFICATION: ClassVar[dict[str, str]] = {
         **mistune.InlineParser.SPECIFICATION,
         "linebreak": r"(?: {2,})\n\s*",
+        "softbreak": r"\n",
     }
 
     def __init__(self) -> None:
@@ -120,12 +128,16 @@ class _RedcarpetInlineParser(mistune.InlineParser):
 
         # Redcarpet's `no_intra_emphasis` extension is disabled by default, while
         # Mistune follows CommonMark and suppresses underscores inside words.
+        # Redcarpet's internal `_isalnum` deliberately accepts ASCII alphanumerics
+        # only; Python `\w` would also match `_` and change delimiter pairing.
+        # Ruby reference:
+        # https://github.com/vmg/redcarpet/blob/v3.6.1/ext/redcarpet/markdown.c
         self.register(
             "redcarpet_intra_emphasis",
             (
-                r"(?<=\w)(?P<redcarpet_intra_marker>_{1,2})"
+                r"(?<=[A-Za-z0-9])(?P<redcarpet_intra_marker>_{1,2})"
                 r"(?P<redcarpet_intra_text>[^_\n]+?)"
-                r"(?P=redcarpet_intra_marker)(?=\w)"
+                r"(?P=redcarpet_intra_marker)(?=[A-Za-z0-9])"
             ),
             _parse_intra_word_emphasis,
             before="emphasis",
@@ -239,8 +251,7 @@ class _RedcarpetRenderer(mistune.HTMLRenderer):
 
     def list(self, text: str, ordered: bool, **attrs: Any) -> str:
         tag = "ol" if ordered else "ul"
-        depth = attrs.get("depth", 0)
-        prefix = "\n" if isinstance(depth, int) and depth > 0 else ""
+        prefix = "\n" if attrs.get(_NESTED_LIST_ATTR) is True else ""
         return f"{prefix}<{tag}>\n{text}</{tag}>\n"
 
     def list_item(self, text: str) -> str:
@@ -263,16 +274,32 @@ class _RedcarpetMarkdown(mistune.Markdown):
         self,
         tokens: Iterable[dict[str, Any]],
         state: mistune.BlockState,
+        *,
+        parent_type: str | None = None,
     ) -> list[dict[str, Any]]:
         prepared: list[dict[str, Any]] = []
         for source_token in tokens:
             token = source_token.copy()
+            token_type = str(token.get("type", ""))
+            if token_type == "list" and parent_type == "list_item":
+                # Mistune's list `depth` counts every nested block state, including
+                # block quotes. Redcarpet needs the extra separator only for a list
+                # structurally nested inside a list item, so mark that relationship
+                # from the token tree rather than inferring it from container depth.
+                attrs = dict(token.get("attrs", {}))
+                attrs[_NESTED_LIST_ATTR] = True
+                token["attrs"] = attrs
+
             children = token.get("children")
             if isinstance(children, list):
-                token["children"] = self._prepare_tokens(children, state)
+                token["children"] = self._prepare_tokens(
+                    children,
+                    state,
+                    parent_type=token_type,
+                )
             elif "text" in token:
                 text = str(token.pop("text"))
-                if token.get("type") == "paragraph":
+                if token_type == "paragraph":
                     # Redcarpet's paragraph renderer skips leading whitespace but
                     # does not trim spaces before the paragraph's structural newline.
                     text = text.lstrip(" \r\n\t\f\v").rstrip("\r\n\t\f\v")
