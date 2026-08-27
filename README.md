@@ -60,7 +60,7 @@ Compatibility is verified with differential tests that render the same cases usi
 
 | Gate | Result |
 | --- | ---: |
-| Ruby 0.8.2 vs Python exact differential corpus | **417/417** |
+| Ruby 0.8.2 vs Python exact differential corpus | **462/462** |
 | Known mismatches in the supported scope | **0** |
 | Official TRMNL 0.8.2 RSpec examples mapped | **73/73** |
 | Upstream examples covered by exact differential tests | **46** |
