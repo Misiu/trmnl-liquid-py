@@ -1,9 +1,8 @@
 """Ruby-compatible nested control-flow nodes for python-liquid.
 
-Ruby Liquid rescues runtime errors per child node in every ``BlockBody``. The
-python-liquid built-in ``if`` and ``for`` parsers expose ``node_class`` as their
-replacement point, so TRMNL can preserve the upstream parsing rules while wrapping
-only the parsed child blocks with :class:`TRMNLBlockNode`.
+Ruby Liquid rescues runtime errors per child node in every ``BlockBody``. We keep
+python-liquid's public ``IfTag`` and ``ForTag`` parsers and adapt only their parsed
+child blocks to :class:`TRMNLBlockNode`.
 
 References:
 - Ruby Liquid 5.13 BlockBody rendering:
@@ -16,13 +15,18 @@ References:
 
 from __future__ import annotations
 
-from liquid.ast import BlockNode, ConditionalBlockNode
+from typing import TYPE_CHECKING
+
+from liquid.ast import BlockNode, ConditionalBlockNode, Node
 from liquid.builtin.expressions import BooleanExpression, LoopExpression
 from liquid.builtin.tags.for_tag import ForNode, ForTag
 from liquid.builtin.tags.if_tag import IfNode, IfTag
 from liquid.token import Token
 
 from .template import TRMNLBlockNode
+
+if TYPE_CHECKING:
+    from liquid.stream import TokenStream
 
 
 def _block(block: BlockNode) -> TRMNLBlockNode:
@@ -60,11 +64,26 @@ class TRMNLIfNode(IfNode):
             default=_optional_block(default),
         )
 
+    @classmethod
+    def from_upstream(cls, node: IfNode) -> TRMNLIfNode:
+        """Wrap an upstream IfNode without changing its parsed expressions."""
+        return cls(
+            token=node.token,
+            condition=node.condition,
+            consequence=node.consequence,
+            alternatives=node.alternatives,
+            default=node.default,
+        )
+
 
 class TRMNLIfTag(IfTag):
     """Built-in ``if`` parser with TRMNL's nested block runtime semantics."""
 
-    node_class = TRMNLIfNode
+    def parse(self, stream: TokenStream) -> Node:
+        node = super().parse(stream)
+        if not isinstance(node, IfNode):
+            return node
+        return TRMNLIfNode.from_upstream(node)
 
 
 class TRMNLForNode(ForNode):
@@ -84,8 +103,20 @@ class TRMNLForNode(ForNode):
             default=_optional_block(default),
         )
 
+    @classmethod
+    def from_upstream(cls, node: ForNode) -> TRMNLForNode:
+        """Wrap an upstream ForNode without changing its parsed expression."""
+        return cls(
+            token=node.token,
+            expression=node.expression,
+            block=node.block,
+            default=node.default,
+        )
+
 
 class TRMNLForTag(ForTag):
     """Built-in ``for`` parser with TRMNL's nested block runtime semantics."""
 
-    node_class = TRMNLForNode
+    def parse(self, stream: TokenStream) -> Node:
+        node = super().parse(stream)
+        return TRMNLForNode.from_upstream(node)
