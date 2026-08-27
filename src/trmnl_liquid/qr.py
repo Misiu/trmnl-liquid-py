@@ -6,7 +6,6 @@ from collections.abc import Sequence
 
 import qrcode
 from qrcode.constants import ERROR_CORRECT_H, ERROR_CORRECT_L, ERROR_CORRECT_M, ERROR_CORRECT_Q
-from qrcode.image.base import BaseImage
 
 _QRMatrix = Sequence[Sequence[bool]]
 _Edge = tuple[int, int, int]
@@ -138,7 +137,7 @@ def _mask_evaluation_matrix(modules: _QRMatrix, version: int) -> list[list[bool]
 def _make_candidate(
     data: str, error_correction: int, mask_pattern: int
 ) -> tuple[list[list[bool]], int]:
-    qr: qrcode.QRCode[BaseImage] = qrcode.QRCode(
+    qr = qrcode.QRCode(
         version=None,
         error_correction=error_correction,
         box_size=1,
