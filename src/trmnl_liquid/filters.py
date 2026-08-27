@@ -3,6 +3,19 @@
 The functions in this module intentionally mimic Ruby behavior where it differs
 from idiomatic Python. Rails/I18n-backed behavior is out of scope for the first
 compatibility target; fallback behavior is implemented instead.
+
+Compatibility references:
+- TRMNL 0.8.2 filters:
+  https://github.com/usetrmnl/trmnl-liquid/blob/0.8.2/lib/trmnl/liquid/filters.rb
+- TRMNL 0.8.2 non-Rails fallback helpers:
+  https://github.com/usetrmnl/trmnl-liquid/blob/0.8.2/lib/trmnl/liquid/fallback.rb
+- Jekyll source referenced by TRMNL for ``where_exp``:
+  https://github.com/jekyll/jekyll/blob/40ac06ed3e95325a07868dd2ac419e409af823b6/lib/jekyll/filters.rb#L209
+- python-liquid 2.3.1 expression parser used by the Python ``where_exp`` adapter:
+  https://github.com/jg-rp/liquid/blob/v2.3.1/liquid/builtin/expressions/logical.py
+  https://github.com/jg-rp/liquid/blob/v2.3.1/liquid/builtin/expressions/_tokenize.py
+- python-dateutil 2.9.0.post0 parser used for Ruby ``Time.parse``-style input:
+  https://github.com/dateutil/dateutil/blob/2.9.0.post0/src/dateutil/parser/_parser.py
 """
 
 from __future__ import annotations
