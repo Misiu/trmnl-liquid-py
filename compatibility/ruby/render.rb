@@ -3,6 +3,17 @@
 require "json"
 require "trmnl/liquid"
 
+# trmnl-liquid 0.8.2 intends to fall back when ActionView/Rails helpers are not
+# available, but Filters references RailsHelpers without defining it first.
+# Define an empty module so respond_to? is false and the gem executes its own
+# Fallback implementation. This keeps Rails/I18n out of the baseline oracle.
+module TRMNL
+  module Liquid
+    module RailsHelpers
+    end unless const_defined?(:RailsHelpers, false)
+  end
+end
+
 $stdout.sync = true
 
 def render_case(payload)
