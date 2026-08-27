@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from liquid import Environment as LiquidEnvironment
@@ -11,6 +12,18 @@ from liquid.loader import BaseLoader
 from . import filters
 from .memory_system import MemorySystem
 from .template_tag import TemplateTag
+
+_QR_COMMA_ARGUMENTS = re.compile(r"(\|\s*qr_code)\s*,")
+
+
+def _normalize_trmnl_syntax(source: str) -> str:
+    """Normalize Ruby Liquid syntax not accepted by python-liquid.
+
+    Ruby Liquid accepts a comma between a filter name and its first argument.
+    TRMNL 0.8.2 uses that form in its documented/tested ``qr_code`` surface.
+    Python Liquid requires a colon, so normalize only that TRMNL-specific form.
+    """
+    return _QR_COMMA_ARGUMENTS.sub(r"\1:", source)
 
 
 class Environment(LiquidEnvironment):
@@ -59,6 +72,23 @@ class Environment(LiquidEnvironment):
         self.add_filter("where_exp", filters.where_exp)
         self.add_filter("ordinalize", filters.ordinalize)
         self.add_filter("qr_code", filters.qr_code)
+
+    def from_string(
+        self,
+        source: str,
+        name: str = "",
+        path: str | None = None,
+        globals: dict[str, object] | None = None,
+        matter: dict[str, object] | None = None,
+    ):
+        """Parse source after applying TRMNL/Ruby Liquid syntax compatibility shims."""
+        return super().from_string(
+            _normalize_trmnl_syntax(source),
+            name=name,
+            path=path,
+            globals=globals,
+            matter=matter,
+        )
 
 
 def render(source: str, /, **data: object) -> str:
