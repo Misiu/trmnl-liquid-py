@@ -10,6 +10,7 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
+  actions: read
   contents: read
 
 jobs:
@@ -50,6 +51,25 @@ jobs:
             echo "Tag '$GITHUB_REF_NAME' does not point to a commit on main." >&2
             exit 1
           fi
+
+      - name: Verify green main CI for tagged commit
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for workflow in ci.yml compatibility.yml; do
+            CONCLUSION="$(
+              gh api \
+                -H "Accept: application/vnd.github+json" \
+                "/repos/$GITHUB_REPOSITORY/actions/workflows/$workflow/runs?head_sha=$GITHUB_SHA&event=push&status=completed&per_page=20" \
+                --jq '.workflow_runs[0].conclusion // ""'
+            )"
+            if [[ "$CONCLUSION" != "success" ]]; then
+              echo "Workflow '$workflow' has no successful completed push run for $GITHUB_SHA." >&2
+              echo "Wait for main CI to finish successfully, then re-run this Release workflow." >&2
+              exit 1
+            fi
+          done
 
       - name: Build distributions
         run: |
