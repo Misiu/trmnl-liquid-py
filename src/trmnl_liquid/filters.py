@@ -129,7 +129,13 @@ def pluralize(
         ruby_to_s(plural) if plural is not None else f"{singular_value}s"
     )
     count_value = ruby_to_s(count)
-    return f"1 {singular_value}" if count == 1 else f"{count_value} {plural_word}"
+
+    # Ruby's TrueClass/FalseClass are not Numeric, while Python's bool subclasses int.
+    # TRMNL 0.8.2 fallback pluralization uses `count == 1`, so `true` is plural in
+    # Ruby even though `True == 1` in Python. Preserve Ruby's equality semantics here.
+    # https://github.com/usetrmnl/trmnl-liquid/blob/0.8.2/lib/trmnl/liquid/fallback.rb
+    is_one = not isinstance(count, bool) and count == 1
+    return f"1 {singular_value}" if is_one else f"{count_value} {plural_word}"
 
 
 def json(value: object) -> str:
