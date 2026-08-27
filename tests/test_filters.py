@@ -41,3 +41,16 @@ def test_pluralize_fallback() -> None:
 def test_i18n_filters_use_upstream_fallback_without_i18n() -> None:
     assert render('{{ "today" | l_word: "es-ES" }}') == "custom_plugins.today"
     assert render('{{ "2025-01-11" | l_date: "%y %b" }}') == "2025-01-11"
+
+
+def test_markdown_matches_redcarpet_block_formatting() -> None:
+    assert render('{{ value | markdown_to_html }}', value="---") == "<hr>\n"
+    assert render(
+        '{{ value | markdown_to_html }}', value="line one\n\nline two"
+    ) == "<p>line one</p>\n\n<p>line two</p>\n"
+    assert render(
+        '{{ value | markdown_to_html }}', value="    indented code\n    second line"
+    ) == "<pre><code>indented code\nsecond line\n</code></pre>\n"
+    assert render(
+        '{{ value | markdown_to_html }}', value="Paragraph\n\n> quote\n\nParagraph"
+    ) == "<p>Paragraph</p>\n\n<blockquote>\n<p>quote</p>\n</blockquote>\n\n<p>Paragraph</p>\n"

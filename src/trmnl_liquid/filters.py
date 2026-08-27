@@ -32,6 +32,21 @@ if TYPE_CHECKING:
 
 _NUMERIC = re.compile(r"^-?\d+(?:\.\d+)?$")
 _TO_I = re.compile(r"^[\s]*([+-]?\d+)")
+_MARKDOWN_BLOCK_TYPES = frozenset(
+    {
+        "block_code",
+        "block_error",
+        "block_html",
+        "block_quote",
+        "footnote_def",
+        "footnotes",
+        "heading",
+        "list",
+        "paragraph",
+        "table",
+        "thematic_break",
+    }
+)
 
 
 class _RedcarpetLikeRenderer(mistune.HTMLRenderer):
@@ -40,8 +55,26 @@ class _RedcarpetLikeRenderer(mistune.HTMLRenderer):
     def text(self, text: str) -> str:
         return html.escape(text, quote=True).replace("&#x27;", "&#39;")
 
-    def heading(self, text: str, level: int, **attrs: Any) -> str:
-        return super().heading(text, level, **attrs) + "\n"
+    def render_tokens(self, tokens: Iterable[dict[str, Any]], state: Any) -> str:
+        parts: list[str] = []
+        has_output = False
+        for token in tokens:
+            rendered = self.render_token(token, state)
+            if not rendered:
+                continue
+            if has_output and token.get("type") in _MARKDOWN_BLOCK_TYPES:
+                parts.append("\n")
+            parts.append(rendered)
+            has_output = True
+        return "".join(parts)
+
+    def thematic_break(self) -> str:
+        return "<hr>\n"
+
+    def block_code(self, code: str, info: str | None = None) -> str:
+        if code and not code.endswith("\n"):
+            code += "\n"
+        return super().block_code(code, info)
 
 
 _MARKDOWN = mistune.create_markdown(renderer=_RedcarpetLikeRenderer())
