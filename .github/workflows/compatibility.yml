@@ -25,4 +25,4 @@ jobs:
       - run: python -m pip install --upgrade pip
       - run: python -m pip install -e .
       - run: python compatibility/compare.py
-      - run: python compatibility/report.py --check
+      - run: python -m compatibility.report --check
