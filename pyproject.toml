@@ -4,15 +4,15 @@ build-backend = "hatchling.build"
 
 [project]
 name = "trmnl-liquid-py"
-version = "0.0.0"
-description = "Python port of TRMNL Liquid with differential compatibility testing"
+dynamic = ["version"]
+description = "TRMNL Liquid 0.8.2 compatibility layer for Python"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
-authors = [{ name = "Tomasz Jagusz" }]
+authors = [{ name = "Misiu" }]
 keywords = ["trmnl", "liquid", "templates", "home-assistant"]
 classifiers = [
-  "Development Status :: 2 - Pre-Alpha",
+  "Development Status :: 3 - Alpha",
   "License :: OSI Approved :: MIT License",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.11",
@@ -32,6 +32,10 @@ dependencies = [
 Homepage = "https://github.com/Misiu/trmnl-liquid-py"
 Repository = "https://github.com/Misiu/trmnl-liquid-py"
 Issues = "https://github.com/Misiu/trmnl-liquid-py/issues"
+Changelog = "https://github.com/Misiu/trmnl-liquid-py/blob/main/CHANGELOG.md"
+
+[tool.hatch.version]
+path = "src/trmnl_liquid/__about__.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/trmnl_liquid"]
