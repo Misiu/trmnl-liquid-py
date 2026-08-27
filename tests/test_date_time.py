@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime as RealDateTime
+from datetime import tzinfo
 
 import pytest
 
@@ -11,7 +12,7 @@ class _FrozenDateTime(RealDateTime):
     frozen_now: RealDateTime
 
     @classmethod
-    def now(cls, tz=None):  # type: ignore[no-untyped-def]
+    def now(cls, tz: tzinfo | None = None) -> RealDateTime:
         if tz is None:
             return cls.frozen_now.replace(tzinfo=None)
         return cls.frozen_now.astimezone(tz)
