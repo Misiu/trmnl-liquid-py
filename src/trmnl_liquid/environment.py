@@ -9,6 +9,7 @@ from liquid import Mode
 from liquid.loader import BaseLoader
 
 from . import filters
+from .control_flow import TRMNLForTag, TRMNLIfTag
 from .liquid_syntax import RubyLaxAssignTag, RubyLaxEchoTag, RubyLaxOutput
 from .memory_system import MemorySystem
 from .template import TRMNLBoundTemplate
@@ -21,9 +22,9 @@ class Environment(LiquidEnvironment):
     Defaults intentionally follow Ruby Liquid's non-autoescaped, lax rendering
     model rather than OpenDisplay Studio's previous hardened POC settings.
 
-    python-liquid exposes ``template_class`` as the supported extension point for
-    changing bound-template behavior. TRMNL uses it to reproduce Ruby Liquid's
-    runtime-error rendering semantics without modifying loaders or built-in tags.
+    python-liquid exposes ``template_class`` and ``add_tag`` as supported extension
+    points. TRMNL uses them to reproduce Ruby Liquid's runtime-error and parsing
+    semantics without monkeypatching library internals.
 
     Python reference:
     https://github.com/jg-rp/liquid/blob/v2.3.1/liquid/environment.py
@@ -53,8 +54,7 @@ class Environment(LiquidEnvironment):
         super().__init__(**kwargs)
 
         # python-liquid registers tags by name, so add_tag() is the public extension
-        # point for replacing a built-in parser while keeping its runtime nodes.
-        # We replace only the three built-ins that parse FilteredExpression.
+        # point for replacing built-in parsers/nodes while preserving the environment.
         #
         # Python references:
         # https://github.com/jg-rp/liquid/blob/v2.3.1/liquid/environment.py
@@ -62,6 +62,8 @@ class Environment(LiquidEnvironment):
         self.add_tag(RubyLaxOutput)
         self.add_tag(RubyLaxAssignTag)
         self.add_tag(RubyLaxEchoTag)
+        self.add_tag(TRMNLIfTag)
+        self.add_tag(TRMNLForTag)
         self.add_tag(TemplateTag)
 
         self.add_filter("append_random", filters.append_random)
