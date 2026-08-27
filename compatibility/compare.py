@@ -9,6 +9,7 @@ from typing import Any
 from coercion_cases import coercion_cases
 from date_time_cases import date_time_cases
 from generated_cases import generated_cases
+from template_error_cases import template_error_cases
 from upstream_cases import upstream_differential_cases
 
 from trmnl_liquid import Environment
@@ -19,13 +20,14 @@ RUBY_DIR = ROOT / "compatibility" / "ruby"
 
 
 def load_differential_cases() -> list[dict[str, Any]]:
-    """Load fixed, generated, coercion, date/time, and upstream compatibility cases."""
+    """Load all exact Ruby/Python compatibility cases."""
     fixed_cases: list[dict[str, Any]] = json.loads(CASES.read_text(encoding="utf-8"))
     return (
         fixed_cases
         + generated_cases()
         + coercion_cases()
         + date_time_cases()
+        + template_error_cases()
         + upstream_differential_cases()
     )
 
