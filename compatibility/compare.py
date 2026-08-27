@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from generated_cases import generated_cases
 from trmnl_liquid import Environment
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -63,7 +64,8 @@ def python_render(case: dict[str, Any]) -> dict[str, object]:
 
 
 def main() -> int:
-    cases: list[dict[str, Any]] = json.loads(CASES.read_text(encoding="utf-8"))
+    fixed_cases: list[dict[str, Any]] = json.loads(CASES.read_text(encoding="utf-8"))
+    cases = fixed_cases + generated_cases()
     ruby_results = ruby_render_all(cases)
     failures: list[tuple[str, dict[str, object], dict[str, object]]] = []
 
