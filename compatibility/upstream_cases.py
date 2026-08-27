@@ -15,60 +15,231 @@ from __future__ import annotations
 from typing import Any
 
 
+def _case(
+    name: str,
+    template: str,
+    data: dict[str, object] | None = None,
+) -> dict[str, Any]:
+    return {"name": name, "template": template, "data": data or {}}
+
+
 def upstream_differential_cases() -> list[dict[str, Any]]:
     """Return deterministic supported upstream examples for Ruby/Python comparison."""
-    cases: list[dict[str, Any]] = [
+    collection = [
+        {"name": "Ryan", "age": 35},
+        {"name": "Sara", "age": 29},
+        {"name": "Jimbob", "age": 29},
+    ]
+    towns = [
+        {"id": 1, "label": "Boulder"},
+        {"id": 2, "label": "Bozeman"},
+    ]
+
+    cases = [
         # fallback_spec.rb -- number_with_delimiter
-        {"name": "upstream fallback delimiter thousands", "template": "{{ 1234 | number_with_delimiter: ',', '.' }}", "data": {}},
-        {"name": "upstream fallback delimiter millions", "template": "{{ 1234.567 | number_with_delimiter: ',', '.' }}", "data": {}},
-        {"name": "upstream fallback delimiter dot comma", "template": "{{ 1234.567 | number_with_delimiter: '.', ',' }}", "data": {}},
-        {"name": "upstream fallback delimiter numeric string", "template": "{{ value | number_with_delimiter: ',', '.' }}", "data": {"value": "1234.567"}},
-        {"name": "upstream fallback delimiter nil", "template": "{{ value | number_with_delimiter: ',', '.' }}", "data": {"value": None}},
-        {"name": "upstream fallback delimiter invalid", "template": "{{ value | number_with_delimiter: ',', '.' }}", "data": {"value": "asdf"}},
+        _case(
+            "upstream fallback delimiter thousands",
+            "{{ 1234 | number_with_delimiter: ',', '.' }}",
+        ),
+        _case(
+            "upstream fallback delimiter millions",
+            "{{ 1234.567 | number_with_delimiter: ',', '.' }}",
+        ),
+        _case(
+            "upstream fallback delimiter dot comma",
+            "{{ 1234.567 | number_with_delimiter: '.', ',' }}",
+        ),
+        _case(
+            "upstream fallback delimiter numeric string",
+            "{{ value | number_with_delimiter: ',', '.' }}",
+            {"value": "1234.567"},
+        ),
+        _case(
+            "upstream fallback delimiter nil",
+            "{{ value | number_with_delimiter: ',', '.' }}",
+            {"value": None},
+        ),
+        _case(
+            "upstream fallback delimiter invalid",
+            "{{ value | number_with_delimiter: ',', '.' }}",
+            {"value": "asdf"},
+        ),
         # fallback_spec.rb -- number_to_currency
-        {"name": "upstream fallback currency usd two cents", "template": "{{ 10420 | number_to_currency: '$', ',', '.', 2 }}", "data": {}},
-        {"name": "upstream fallback currency usd no cents", "template": "{{ 10420 | number_to_currency: '$', ',', '.', 0 }}", "data": {}},
-        {"name": "upstream fallback currency usd four cents", "template": "{{ 10420 | number_to_currency: '$', ',', '.', 4 }}", "data": {}},
-        {"name": "upstream fallback currency pounds", "template": "{{ 1234.57 | number_to_currency: '£', '.', ',', 2 }}", "data": {}},
+        _case(
+            "upstream fallback currency usd two cents",
+            "{{ 10420 | number_to_currency: '$', ',', '.', 2 }}",
+        ),
+        _case(
+            "upstream fallback currency usd no cents",
+            "{{ 10420 | number_to_currency: '$', ',', '.', 0 }}",
+        ),
+        _case(
+            "upstream fallback currency usd four cents",
+            "{{ 10420 | number_to_currency: '$', ',', '.', 4 }}",
+        ),
+        _case(
+            "upstream fallback currency pounds",
+            "{{ 1234.57 | number_to_currency: '£', '.', ',', 2 }}",
+        ),
         # fallback_spec.rb -- pluralize
-        {"name": "upstream fallback plural zero", "template": "{{ 'cow' | pluralize: 0, plural: 'cows' }}", "data": {}},
-        {"name": "upstream fallback plural one", "template": "{{ 'cow' | pluralize: 1, plural: 'cows' }}", "data": {}},
-        {"name": "upstream fallback plural multiple", "template": "{{ 'cow' | pluralize: 2 }}", "data": {}},
+        _case(
+            "upstream fallback plural zero",
+            "{{ 'cow' | pluralize: 0, plural: 'cows' }}",
+        ),
+        _case(
+            "upstream fallback plural one",
+            "{{ 'cow' | pluralize: 1, plural: 'cows' }}",
+        ),
+        _case(
+            "upstream fallback plural multiple",
+            "{{ 'cow' | pluralize: 2 }}",
+        ),
         # filters_spec.rb
-        {"name": "upstream filter group by", "template": "{{ collection | group_by: 'age' }}", "data": {"collection": [{"name": "Ryan", "age": 35}, {"name": "Sara", "age": 29}, {"name": "Jimbob", "age": 29}]}},
-        {"name": "upstream filter find by name", "template": "{{ collection | find_by: 'name', 'Ryan' }}", "data": {"collection": [{"name": "Ryan", "age": 35}, {"name": "Sara", "age": 29}, {"name": "Jimbob", "age": 29}]}},
-        {"name": "upstream filter find fallback", "template": "{{ collection | find_by: 'name', 'ronak', 'Not Found' }}", "data": {"collection": [{"name": "Ryan", "age": 35}, {"name": "Sara", "age": 29}, {"name": "Jimbob", "age": 29}]}},
-        {"name": "upstream filter markdown html", "template": "{{ markdown | markdown_to_html }}", "data": {"markdown": "This is a *test* and [here's a link](https://test.io)."}},
-        {"name": "upstream filter delimiter comma", "template": "{{ 1234 | number_with_delimiter }}", "data": {}},
-        {"name": "upstream filter delimiter period", "template": "{{ 1234 | number_with_delimiter: '.' }}", "data": {}},
-        {"name": "upstream filter delimiter space comma", "template": "{{ 1234.57 | number_with_delimiter: ' ', ',' }}", "data": {}},
-        {"name": "upstream filter currency usd", "template": "{{ 10420 | number_to_currency }}", "data": {}},
-        {"name": "upstream filter currency pounds", "template": "{{ 152350.69 | number_to_currency: '£' }}", "data": {}},
-        {"name": "upstream filter currency pounds period comma", "template": "{{ 1234.57 | number_to_currency: '£', '.', ',' }}", "data": {}},
-        {"name": "upstream filter currency custom unit", "template": "{{ 123 | number_to_currency: 'tbd' }}", "data": {}},
-        {"name": "upstream filter map characters", "template": "{% assign nums = 'a, b, c, d, e' | split: ', ' | map_to_i %}{{ nums }}", "data": {}},
-        {"name": "upstream filter map numbers", "template": "{% assign nums = '5, 4, 3, 2, 1' | split: ', ' | map_to_i %}{{ nums }}", "data": {}},
-        {"name": "upstream filter plural zero", "template": "{{ 'book' | pluralize: 0 }}", "data": {}},
-        {"name": "upstream filter plural one", "template": "{{ 'book' | pluralize: 1 }}", "data": {}},
-        {"name": "upstream filter plural multiple", "template": "{{ 'book' | pluralize: 2 }}", "data": {}},
-        {"name": "upstream filter plural explicit", "template": "{{ 'person' | pluralize: 4, plural: 'humans' }}", "data": {}},
-        {"name": "upstream filter json", "template": "{{ data | json }}", "data": {"data": [{"a": 1, "b": "c"}, "d"]}},
-        {"name": "upstream filter parse json", "template": "{% assign value = data | parse_json %}{{ value.a }}", "data": {"data": "{\"a\":1,\"b\":\"c\"}"}},
-        {"name": "upstream filter where non collection", "template": "{{ 'test' | where_exp: 'la', 'le' }}", "data": {}},
-        {"name": "upstream filter where or", "template": "{{ towns | where_exp: 'town', \"town.label == 'Boulder' or town.id < 2\" }}", "data": {"towns": [{"id": 1, "label": "Boulder"}, {"id": 2, "label": "Bozeman"}]}},
-        {"name": "upstream filter where equation", "template": "{% assign nums = '1,2,3,4,5' | split: ',' | map_to_i %}{{ nums | where_exp: 'n', 'n >= 3' }}", "data": {}},
-        {"name": "upstream filter ordinal timestamp", "template": "{{ 1770134949 | ordinalize: '%A, %B <<ordinal_day>>, %Y' }}", "data": {}},
-        {"name": "upstream filter ordinal date", "template": "{{ '2025-10-02' | ordinalize: '%A, %B <<ordinal_day>>, %Y' }}", "data": {}},
-        {"name": "upstream filter ordinal offset", "template": "{{ '2025-12-31 16:50:38 -0400' | ordinalize: '%A, %b <<ordinal_day>>' }}", "data": {}},
-        {"name": "upstream filter qr defaults", "template": "{{ 'Test' | qr_code }}", "data": {}},
-        {"name": "upstream filter qr low correction", "template": "{{ 'Test' | qr_code: 11, 'l' }}", "data": {}},
-        {"name": "upstream filter qr invalid correction", "template": "{{ 'Test' | qr_code: 11, 'BOGUS' }}", "data": {}},
-        {"name": "upstream filter qr fixed comma syntax", "template": "{{ 'Test' | qr_code, 11, '', 'fixed' }}", "data": {}},
+        _case(
+            "upstream filter group by",
+            "{{ collection | group_by: 'age' }}",
+            {"collection": collection},
+        ),
+        _case(
+            "upstream filter find by name",
+            "{{ collection | find_by: 'name', 'Ryan' }}",
+            {"collection": collection},
+        ),
+        _case(
+            "upstream filter find fallback",
+            "{{ collection | find_by: 'name', 'ronak', 'Not Found' }}",
+            {"collection": collection},
+        ),
+        _case(
+            "upstream filter markdown html",
+            "{{ markdown | markdown_to_html }}",
+            {"markdown": "This is a *test* and [here's a link](https://test.io)."},
+        ),
+        _case(
+            "upstream filter delimiter comma",
+            "{{ 1234 | number_with_delimiter }}",
+        ),
+        _case(
+            "upstream filter delimiter period",
+            "{{ 1234 | number_with_delimiter: '.' }}",
+        ),
+        _case(
+            "upstream filter delimiter space comma",
+            "{{ 1234.57 | number_with_delimiter: ' ', ',' }}",
+        ),
+        _case(
+            "upstream filter currency usd",
+            "{{ 10420 | number_to_currency }}",
+        ),
+        _case(
+            "upstream filter currency pounds",
+            "{{ 152350.69 | number_to_currency: '£' }}",
+        ),
+        _case(
+            "upstream filter currency pounds period comma",
+            "{{ 1234.57 | number_to_currency: '£', '.', ',' }}",
+        ),
+        _case(
+            "upstream filter currency custom unit",
+            "{{ 123 | number_to_currency: 'tbd' }}",
+        ),
+        _case(
+            "upstream filter map characters",
+            "{% assign nums = 'a, b, c, d, e' | split: ', ' | map_to_i %}{{ nums }}",
+        ),
+        _case(
+            "upstream filter map numbers",
+            "{% assign nums = '5, 4, 3, 2, 1' | split: ', ' | map_to_i %}{{ nums }}",
+        ),
+        _case(
+            "upstream filter plural zero",
+            "{{ 'book' | pluralize: 0 }}",
+        ),
+        _case(
+            "upstream filter plural one",
+            "{{ 'book' | pluralize: 1 }}",
+        ),
+        _case(
+            "upstream filter plural multiple",
+            "{{ 'book' | pluralize: 2 }}",
+        ),
+        _case(
+            "upstream filter plural explicit",
+            "{{ 'person' | pluralize: 4, plural: 'humans' }}",
+        ),
+        _case(
+            "upstream filter json",
+            "{{ data | json }}",
+            {"data": [{"a": 1, "b": "c"}, "d"]},
+        ),
+        _case(
+            "upstream filter parse json",
+            "{% assign value = data | parse_json %}{{ value.a }}",
+            {"data": '{"a":1,"b":"c"}'},
+        ),
+        _case(
+            "upstream filter where non collection",
+            "{{ 'test' | where_exp: 'la', 'le' }}",
+        ),
+        _case(
+            "upstream filter where or",
+            "{{ towns | where_exp: 'town', \"town.label == 'Boulder' or town.id < 2\" }}",
+            {"towns": towns},
+        ),
+        _case(
+            "upstream filter where equation",
+            "{% assign nums = '1,2,3,4,5' | split: ',' | map_to_i %}"
+            "{{ nums | where_exp: 'n', 'n >= 3' }}",
+        ),
+        _case(
+            "upstream filter ordinal timestamp",
+            "{{ 1770134949 | ordinalize: '%A, %B <<ordinal_day>>, %Y' }}",
+        ),
+        _case(
+            "upstream filter ordinal date",
+            "{{ '2025-10-02' | ordinalize: '%A, %B <<ordinal_day>>, %Y' }}",
+        ),
+        _case(
+            "upstream filter ordinal offset",
+            "{{ '2025-12-31 16:50:38 -0400' | ordinalize: "
+            "'%A, %b <<ordinal_day>>' }}",
+        ),
+        _case(
+            "upstream filter qr defaults",
+            "{{ 'Test' | qr_code }}",
+        ),
+        _case(
+            "upstream filter qr low correction",
+            "{{ 'Test' | qr_code: 11, 'l' }}",
+        ),
+        _case(
+            "upstream filter qr invalid correction",
+            "{{ 'Test' | qr_code: 11, 'BOGUS' }}",
+        ),
+        _case(
+            "upstream filter qr fixed comma syntax",
+            "{{ 'Test' | qr_code, 11, '', 'fixed' }}",
+        ),
         # template_tag_spec.rb
-        {"name": "upstream template registered render", "template": "{% template my_template %}Hello, {{ name }}{% endtemplate %}\n{% render 'my_template', name: 'world' %}\n{% render 'my_template', name: name %}", "data": {"name": "George"}},
-        {"name": "upstream template definition output", "template": "abc {% template my_template %}Hello, {{ name }}{% endtemplate %} 123", "data": {}},
-        {"name": "upstream template invalid name", "template": "{% template Danger! %}Hello, world!{% endtemplate %}", "data": {}},
-        {"name": "upstream template missing", "template": "{% render \"bogus\" %}", "data": {}},
+        _case(
+            "upstream template registered render",
+            "{% template my_template %}Hello, {{ name }}{% endtemplate %}\n"
+            "{% render 'my_template', name: 'world' %}\n"
+            "{% render 'my_template', name: name %}",
+            {"name": "George"},
+        ),
+        _case(
+            "upstream template definition output",
+            "abc {% template my_template %}Hello, {{ name }}{% endtemplate %} 123",
+        ),
+        _case(
+            "upstream template invalid name",
+            "{% template Danger! %}Hello, world!{% endtemplate %}",
+        ),
+        _case(
+            "upstream template missing",
+            '{% render "bogus" %}',
+        ),
     ]
     assert len(cases) == 46
     return cases
