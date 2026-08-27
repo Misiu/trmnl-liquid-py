@@ -31,3 +31,18 @@ jobs:
       - run: pytest
       - run: python -m build
       - run: twine check dist/*
+      - name: Smoke-test built wheel in a clean environment
+        shell: bash
+        run: |
+          python -m venv /tmp/trmnl-wheel-smoke
+          /tmp/trmnl-wheel-smoke/bin/python -m pip install --upgrade pip
+          /tmp/trmnl-wheel-smoke/bin/python -m pip install dist/*.whl
+          cd /tmp
+          /tmp/trmnl-wheel-smoke/bin/python - <<'PY'
+          from importlib.resources import files
+
+          from trmnl_liquid import render
+
+          assert render("Hello {{ name }}", name="TRMNL") == "Hello TRMNL"
+          assert files("trmnl_liquid").joinpath("py.typed").is_file()
+          PY
