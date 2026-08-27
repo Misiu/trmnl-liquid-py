@@ -55,4 +55,22 @@ Features added to upstream after 0.8.2 are not included until we intentionally a
 
 Compatibility is verified with differential tests that render the same cases using the Ruby package and this Python implementation. Known mismatches in the supported surface are release blockers.
 
+<!-- compatibility-report:start -->
+### Compatibility evidence
+
+| Gate | Result |
+| --- | ---: |
+| Ruby 0.8.2 vs Python exact differential corpus | **417/417** |
+| Known mismatches in the supported scope | **0** |
+| Official TRMNL 0.8.2 RSpec examples mapped | **73/73** |
+| Upstream examples covered by exact differential tests | **46** |
+| Upstream examples covered by property/unit tests | **16** |
+| Upstream examples covered in the initial non-I18n scope | **62/73** |
+| Deferred Rails/I18n upstream examples | **11** |
+| Python CI matrix | **3.11, 3.12, 3.13, 3.14** |
+| Comparison | **exact rendered output** |
+
+The `Compatibility` workflow runs the Ruby oracle first and fails on any mismatch. It then checks that this generated report still matches the checked-in corpus and upstream-spec manifest.
+<!-- compatibility-report:end -->
+
 See [`COMPATIBILITY.md`](COMPATIBILITY.md) for the compatibility contract and details of the Ruby reference runner.
