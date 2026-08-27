@@ -22,7 +22,7 @@ import html
 import re
 from collections.abc import Iterable
 from re import Match
-from typing import Any
+from typing import Any, ClassVar
 
 import mistune
 
@@ -110,7 +110,7 @@ class _RedcarpetInlineParser(mistune.InlineParser):
     # Redcarpet treats two trailing spaces as a hard break, but a backslash before
     # a newline remains literal with the default extension set. Mistune's default
     # linebreak rule treats both forms as hard breaks.
-    SPECIFICATION = {
+    SPECIFICATION: ClassVar[dict[str, str]] = {
         **mistune.InlineParser.SPECIFICATION,
         "linebreak": r"(?: {2,})\n\s*",
     }
@@ -150,7 +150,7 @@ class _RedcarpetBlockParser(mistune.BlockParser):
     DEFAULT_RULES = tuple(
         rule for rule in mistune.BlockParser.DEFAULT_RULES if rule != "fenced_code"
     )
-    SPECIFICATION = {
+    SPECIFICATION: ClassVar[dict[str, str]] = {
         **mistune.BlockParser.SPECIFICATION,
         "redcarpet_list_indented_paragraph": _LIST_INDENTED_PARAGRAPH,
     }
