@@ -1,27 +1,55 @@
 # trmnl-liquid-py
 
-A Python port of [`usetrmnl/trmnl-liquid`](https://github.com/usetrmnl/trmnl-liquid), targeting byte-for-byte compatible rendering for the supported TRMNL Liquid surface.
+A Python compatibility layer for [`usetrmnl/trmnl-liquid`](https://github.com/usetrmnl/trmnl-liquid), targeting byte-for-byte compatible rendering for the supported TRMNL Liquid 0.8.2 surface.
 
 > [!NOTE]
-> This project is under active development. The initial compatibility target is `trmnl-liquid` **0.8.2**. Internationalization/Rails extensions are intentionally deferred.
->
-> The package has not been released to PyPI yet. A release will only be prepared after the compatibility work is complete and explicitly approved.
+> The first release target is `trmnl-liquid-py` **0.1.0**, compatible with `trmnl-liquid` **0.8.2** for the supported non-I18n surface. Rails/ActionView and full I18n behavior are intentionally deferred.
 
-## Why this package exists
+## Installation
 
-[`python-liquid`](https://github.com/jg-rp/liquid) provides the Python Liquid parser and rendering engine. TRMNL's Ruby package adds behavior on top of standard Liquid that TRMNL templates rely on. `trmnl-liquid-py` provides that TRMNL-specific compatibility layer for Python.
+Once 0.1.0 is published to PyPI:
 
-The goal is not to create another general-purpose Liquid implementation. The goal is to make templates written for `trmnl-liquid` 0.8.2 render the same way in Python for the supported non-I18n surface.
+```bash
+python -m pip install trmnl-liquid-py
+```
 
-## What this adds over python-liquid
+Python **3.11–3.14** is supported.
 
-For the `trmnl-liquid` 0.8.2 compatibility target, this package adds or adapts the following TRMNL-specific behavior on top of `python-liquid`:
+## Quick start
 
-### TRMNL tag behavior
+```python
+from trmnl_liquid import Environment
 
-- `{% template ... %}` definitions compatible with TRMNL's in-memory template/snippet behavior and subsequent `{% render ... %}` usage.
+env = Environment()
+template = env.from_string("Hello {{ name }}!")
+print(template.render(name="TRMNL"))
+```
 
-### TRMNL filters
+For one-shot rendering:
+
+```python
+from trmnl_liquid import render
+
+html = render("{{ value | number_with_delimiter }}", value=1234567)
+```
+
+## Inline templates
+
+TRMNL adds an inline `{% template %}` definition that can later be rendered with Liquid's `{% render %}` tag:
+
+```liquid
+{% template card %}
+<div>{{ title }}</div>
+{% endtemplate %}
+
+{% render 'card', title: 'Status' %}
+```
+
+`trmnl-liquid-py` reproduces TRMNL 0.8.2's raw-body and template-storage semantics, including its exact `{% endtemplate %}` terminator behavior.
+
+## TRMNL filters
+
+The 0.1.0 compatibility surface includes:
 
 - `append_random`
 - `days_ago`
@@ -41,19 +69,39 @@ For the `trmnl-liquid` 0.8.2 compatibility target, this package adds or adapts t
 - `ordinalize`
 - `qr_code`
 
-Where `python-liquid` already provides related Liquid functionality, `trmnl-liquid-py` still treats Ruby `trmnl-liquid` 0.8.2 as the compatibility reference. Differences in parsing, coercion, formatting, error handling, or rendered output are corrected in this package when they affect the supported TRMNL surface.
+Important TRMNL/Ruby syntax differences are preserved where required. For example, Ruby Liquid's lax filter syntax accepts a leading comma before the first filter argument:
+
+```liquid
+{{ value | qr_code, 11 }}
+```
+
+### Markdown
+
+`markdown_to_html` reproduces the tested output of TRMNL 0.8.2's default Redcarpet 3.6.1 configuration using Mistune on Python.
+
+```liquid
+{{ markdown | markdown_to_html }}
+```
+
+### QR codes
+
+`qr_code` renders the SVG shape expected from TRMNL's RQRCode-based implementation, including compatible QR mask selection/scoring behavior.
+
+```liquid
+{{ 'https://example.com' | qr_code: 11 }}
+```
 
 ## Compatibility target
 
-The initial baseline is exactly:
+The baseline is exactly:
 
 - `trmnl-liquid` **0.8.2**
+- Python **3.11, 3.12, 3.13, 3.14**
 - non-I18n behavior
-- Ruby/Rails internationalization extensions are intentionally excluded from the first compatibility gate
+- Rails/ActionView and full localized `l_word` / `l_date` behavior deferred
+- features added after upstream 0.8.2 excluded until a later compatibility target is adopted
 
-Features added to upstream after 0.8.2 are not included until we intentionally adopt a newer upstream release.
-
-Compatibility is verified with differential tests that render the same cases using the Ruby package and this Python implementation. Known mismatches in the supported surface are release blockers.
+Ruby `trmnl-liquid` 0.8.2 is the reference implementation. Differences in parsing, coercion, formatting, Markdown rendering, QR generation, template behavior, error handling, or rendered output are treated as compatibility issues when they affect the supported scope.
 
 <!-- compatibility-report:start -->
 ### Compatibility evidence
@@ -73,4 +121,31 @@ Compatibility is verified with differential tests that render the same cases usi
 The `Compatibility` workflow runs the Ruby oracle first and fails on any mismatch. It then checks that this generated report still matches the checked-in corpus and upstream-spec manifest.
 <!-- compatibility-report:end -->
 
-See [`COMPATIBILITY.md`](COMPATIBILITY.md) for the compatibility contract and details of the Ruby reference runner.
+See [`COMPATIBILITY.md`](COMPATIBILITY.md) for the compatibility contract, upstream spec mapping, and Ruby oracle details.
+
+## Development
+
+Install the project with development dependencies, then run the normal quality gates:
+
+```bash
+python -m pip install -e . pytest ruff mypy build twine \
+  types-python-dateutil==2.9.0.20260807 \
+  types-qrcode==8.2.0.20260518
+ruff check .
+mypy src/trmnl_liquid
+pytest
+python -m build
+twine check dist/*
+```
+
+The Ruby/Python differential suite additionally requires Ruby and the bundle in `compatibility/ruby`:
+
+```bash
+bundle install --gemfile compatibility/ruby/Gemfile
+python compatibility/compare.py
+python -m compatibility.report --check
+```
+
+## License
+
+MIT. The repository license includes attribution for portions derived from `usetrmnl/trmnl-liquid`.
