@@ -31,6 +31,44 @@ jobs:
       - run: pytest
       - run: python -m build
       - run: twine check dist/*
+      - name: Verify distribution contents
+        shell: bash
+        run: |
+          python - <<'PY'
+          import tarfile
+          import zipfile
+          from pathlib import Path
+
+          wheel = next(Path("dist").glob("*.whl"))
+          sdist = next(Path("dist").glob("*.tar.gz"))
+
+          with zipfile.ZipFile(wheel) as archive:
+              names = set(archive.namelist())
+              assert "trmnl_liquid/py.typed" in names
+              assert "trmnl_liquid/__about__.py" in names
+              assert all(
+                  name.startswith("trmnl_liquid/")
+                  or ".dist-info/" in name
+                  for name in names
+              )
+
+          with tarfile.open(sdist, "r:gz") as archive:
+              members = [member.name.split("/", 1)[1] for member in archive.getmembers() if "/" in member.name]
+              allowed = (
+                  "src/trmnl_liquid/",
+                  "README.md",
+                  "CHANGELOG.md",
+                  "LICENSE",
+                  "pyproject.toml",
+                  "PKG-INFO",
+              )
+              assert members
+              assert all(
+                  member in allowed
+                  or any(member.startswith(prefix) for prefix in allowed if prefix.endswith("/"))
+                  for member in members
+              )
+          PY
       - name: Smoke-test built wheel in a clean environment
         shell: bash
         run: |
@@ -41,8 +79,9 @@ jobs:
           /tmp/trmnl-wheel-smoke/bin/python - <<'PY'
           from importlib.resources import files
 
-          from trmnl_liquid import render
+          from trmnl_liquid import __version__, render
 
+          assert __version__ == "0.1.0"
           assert render("Hello {{ name }}", name="TRMNL") == "Hello TRMNL"
           assert files("trmnl_liquid").joinpath("py.typed").is_file()
           PY
