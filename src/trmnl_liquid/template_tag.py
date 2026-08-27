@@ -4,8 +4,7 @@ from __future__ import annotations
 
 import json
 import re
-from typing import TYPE_CHECKING
-from typing import TextIO
+from typing import TYPE_CHECKING, TextIO
 
 from liquid.ast import BlockNode, Node
 from liquid.parser import get_parser
@@ -27,7 +26,7 @@ NAME_PATTERN = re.compile(r"^[a-zA-Z0-9_/]+$")
 class TemplateNode(Node):
     """Register an inline template when this node is rendered."""
 
-    __slots__ = ("name", "body")
+    __slots__ = ("body", "name")
 
     def __init__(self, token: Token, name: str, body: str) -> None:
         super().__init__(token)
